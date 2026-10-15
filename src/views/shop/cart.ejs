@@ -1,0 +1,75 @@
+<div class="mx-auto max-w-6xl px-4 pb-20 md:px-6">
+  <header class="pb-6 pt-10 md:pt-14">
+    <h1 class="display text-[38px] text-eva md:text-[52px]"><%= t('cart.title') %></h1>
+    <% if (lines.length) { %><p class="mt-1 text-[14px] text-ink-soft"><%= t('cart.items', { n: totals.item_count }) %></p><% } %>
+  </header>
+
+  <% if (notices.length) { %>
+    <div class="mb-6 space-y-2 rounded-card border border-warn/25 bg-warn-soft px-4 py-3 text-[14px] text-warn" role="status">
+      <% notices.forEach(function (n) { %><p class="flex gap-2"><%- include('../partials/icon', { name: 'info', cls: 'mt-0.5 h-4 w-4 shrink-0' }) %><%= t(n.key, { name: plabel(n.product), qty: n.qty }) %></p><% }) %>
+    </div>
+  <% } %>
+
+  <% if (!lines.length) { %>
+    <div class="mx-auto max-w-sm py-16 text-center">
+      <img src="/brand/monogram-pink.png" alt="" class="mx-auto h-24 w-auto opacity-40">
+      <p class="mt-6 text-[18px]"><%= t('cart.empty') %></p>
+      <p class="mt-1 text-[15px] text-ink-soft"><%= t('cart.empty_hint') %></p>
+      <a href="/shop" class="press mt-7 inline-flex h-[52px] items-center rounded-[10px] bg-ink px-8 text-white shadow-lift hover:bg-eva-deep active:bg-ink"><span class="btn-label"><%= t('cart.empty_cta') %></span></a>
+    </div>
+  <% } else { %>
+    <div class="grid gap-8 md:grid-cols-[1fr_360px] md:items-start lg:gap-12">
+      <ul class="divide-y divide-line border-y border-line">
+        <% lines.forEach(function (line) { const p = line.product; const pn = pname(p); %>
+          <li class="flex gap-4 py-5">
+            <a href="/product/<%= p.slug %>" class="relative block w-[88px] shrink-0 overflow-hidden rounded-[10px] bg-sand md:w-[104px]" tabindex="-1" aria-hidden="true">
+              <% if (p.image) { %><img src="<%= p.image %>" alt="" class="aspect-[3/4] w-full object-cover"><% } else { %><span class="block aspect-[3/4]" style="background: <%= p.swatch %>"></span><% } %>
+            </a>
+            <div class="flex min-w-0 flex-1 flex-col">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <% if (pn) { %><a href="/product/<%= p.slug %>" class="display text-[20px] leading-snug text-eva-deep hover:underline"><%= pn %></a><% } %>
+                  <p class="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-[14px] text-ink-soft">
+                    <span class="num"><%= money(line.unit_final) %></span>
+                    <% if (line.discount_percent) { %><s class="num text-ink-faint"><%= money(line.price) %></s><span class="num text-eva-deep" dir="ltr">-<%= line.discount_percent %>%</span><% } %>
+                  </p>
+                </div>
+                <p class="num shrink-0 text-[16px] font-medium"><%= money(line.line_total) %></p>
+              </div>
+              <div class="mt-auto flex items-center justify-between gap-3 pt-3">
+                <form action="/cart/update" method="post" class="flex h-11 items-center rounded-[10px] border border-line bg-white">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="product_id" value="<%= p.id %>">
+                  <button name="qty" value="<%= line.qty - 1 %>" class="press grid h-full w-11 place-items-center rounded-s-[10px] hover:bg-eva-blush/60 active:bg-eva-blush" aria-label="<%= t('product.decrease') %>"><%- include('../partials/icon', { name: 'minus', cls: 'h-4 w-4' }) %></button>
+                  <span class="num w-8 text-center text-[16px]" aria-label="<%= t('product.qty') %>"><%= line.qty %></span>
+                  <button name="qty" value="<%= line.qty + 1 %>" class="press grid h-full w-11 place-items-center rounded-e-[10px] hover:bg-eva-blush/60 active:bg-eva-blush disabled:opacity-35 disabled:hover:bg-transparent" aria-label="<%= t('product.increase') %>" <%= line.qty >= Math.min(p.stock, 20) ? 'disabled' : '' %>><%- include('../partials/icon', { name: 'plus', cls: 'h-4 w-4' }) %></button>
+                </form>
+                <form action="/cart/remove" method="post">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="product_id" value="<%= p.id %>">
+                  <button class="press flex h-11 items-center gap-1.5 rounded-full px-3 text-[14px] text-ink-soft hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush" aria-label="<%= t('cart.remove_named', { name: plabel(p) }) %>">
+                    <%- include('../partials/icon', { name: 'trash', cls: 'h-[18px] w-[18px]' }) %><span><%= t('cart.remove') %></span>
+                  </button>
+                </form>
+              </div>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+
+      <aside class="rounded-card bg-white p-5 shadow-lift md:sticky md:top-[100px] md:p-6" aria-labelledby="summary-title">
+        <h2 id="summary-title" class="text-[17px] font-medium"><%= t('cart.summary') %></h2>
+        <%- include('../partials/totals', { totals }) %>
+        <%# Delivery is priced from the neighborhood saved in the customer's account. %>
+        <% if (!zone) { %>
+          <a href="<%= user ? '/account/profile?next=/cart' : '/account/login?next=/cart' %>" class="mt-3 flex items-center gap-2 rounded-xl bg-eva-mist px-3 py-2.5 text-[13px] text-eva-deep hover:bg-eva-blush active:bg-eva-blush">
+            <%- include('../partials/icon', { name: 'pin', cls: 'h-4 w-4 shrink-0' }) %><span class="flex-1"><%= user ? t('cart.zone_from_profile') : t('cart.zone_login') %></span><%- include('../partials/icon', { name: 'chevron-right', cls: 'h-4 w-4 shrink-0', flipRtl: true }) %>
+          </a>
+        <% } %>
+        <a href="/checkout" class="press mt-6 flex h-[54px] items-center justify-center rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink"><span class="btn-label"><%= t('cart.checkout') %></span></a>
+        <p class="mt-3 flex items-center justify-center gap-2 text-[13px] text-ink-soft"><%- include('../partials/icon', { name: 'truck', cls: 'h-4 w-4' }) %><%= t('cart.cod_note') %></p>
+        <a href="/shop" class="mt-4 block text-center text-[14px] text-ink-soft underline-offset-4 hover:text-eva-deep hover:underline"><%= t('cart.continue') %></a>
+      </aside>
+    </div>
+  <% } %>
+</div>

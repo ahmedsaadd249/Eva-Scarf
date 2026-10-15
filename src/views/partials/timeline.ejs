@@ -1,0 +1,19 @@
+<%
+  const steps = ['processing', 'shipped', 'delivered'];
+  const reached = steps.indexOf(order.status);
+  const when = {};
+  order.history.forEach(function (h) { when[h.status] = h.created_at; });
+  const sicons = { processing: 'box', shipped: 'truck', delivered: 'home' };
+%>
+<ol class="grid grid-cols-3" aria-label="<%= t('orders.timeline') %>">
+  <% steps.forEach(function (s, i) { const done = i <= reached; %>
+    <li class="relative flex flex-col items-center text-center" <%- i === reached ? 'aria-current="step"' : '' %>>
+      <% if (i > 0) { %><span class="absolute end-1/2 top-5 h-0.5 w-full -translate-y-1/2 <%= done ? 'bg-eva-deep' : 'bg-line' %>" aria-hidden="true"></span><% } %>
+      <span class="relative z-[1] grid h-10 w-10 place-items-center rounded-full <%= done ? 'bg-eva-deep text-white' : 'border border-line bg-white text-ink-faint' %>">
+        <%- include('icon', { name: sicons[s], cls: 'h-5 w-5' }) %>
+      </span>
+      <span class="mt-2 text-[13px] font-medium <%= done ? 'text-ink' : 'text-ink-faint' %>"><%= t('status.' + s) %></span>
+      <span class="text-[12px] text-ink-soft"><%= when[s] ? formatDate(when[s], false) : '' %></span>
+    </li>
+  <% }) %>
+</ol>

@@ -1,0 +1,29 @@
+<%
+  const tabs = [
+    { href: '/', icon: 'home', label: t('nav.home'), active: path === '/' },
+    { href: '/shop', icon: 'grid', label: t('nav.shop'), active: path === '/shop' || path.startsWith('/product') },
+    { href: '/cart', icon: 'bag', label: t('nav.cart'), active: path === '/cart' || path === '/checkout', badge: true },
+    { href: user ? '/account/profile' : '/account/login', icon: 'user', label: t('nav.account'), active: path.startsWith('/account') },
+  ];
+%>
+<nav class="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 backdrop-blur-md md:hidden" aria-label="<%= t('nav.tabs') %>">
+  <ul class="grid grid-cols-5 divide-x divide-line rtl:divide-x-reverse">
+    <% tabs.forEach(function (tab) { %>
+      <li>
+        <a href="<%= tab.href %>" class="press relative flex h-[60px] flex-col items-center justify-center gap-0.5 text-[11px] active:bg-eva-blush/60 <%= tab.active ? 'text-eva-deep' : 'text-ink/75 hover:text-ink' %>" <%- tab.active ? 'aria-current="page"' : '' %>>
+          <%- include('icon', { name: tab.icon, cls: 'h-[22px] w-[22px]', stroke: tab.active ? 1.9 : 1.6 }) %>
+          <span><%= tab.label %></span>
+          <% if (tab.badge) { %>
+            <span data-cart-count class="num absolute start-1/2 top-1.5 ms-1.5 grid min-w-[18px] place-items-center rounded-full bg-eva px-1 text-[10px] font-semibold leading-[18px] text-white <%= cartCount ? '' : 'hidden' %>"><%= cartCount %></span>
+          <% } %>
+        </a>
+      </li>
+    <% }) %>
+    <li>
+      <button type="button" data-search-open class="press flex h-[60px] w-full flex-col items-center justify-center gap-0.5 text-[11px] text-ink/75 hover:text-ink active:bg-eva-blush/60" aria-controls="search-panel" aria-expanded="false">
+        <%- include('icon', { name: 'search', cls: 'h-[22px] w-[22px]' }) %>
+        <span><%= t('nav.search') %></span>
+      </button>
+    </li>
+  </ul>
+</nav>

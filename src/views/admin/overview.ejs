@@ -1,0 +1,80 @@
+<h1 class="display text-[34px] text-eva md:text-[42px]"><%= t('admin.overview') %></h1>
+
+<div class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
+  <% ['processing', 'shipped', 'delivered'].forEach(function (s) { %>
+    <a href="/admin/orders?status=<%= s %>" class="press block rounded-card bg-white p-4 shadow-soft hover:shadow-lift active:scale-[.99] md:p-5">
+      <%- include('../partials/status-pill', { status: s }) %>
+      <p class="num mt-3 text-[30px] font-medium leading-none"><%= counts[s] %></p>
+      <p class="mt-1.5 text-[13px] text-ink-soft"><%= t('admin.orders_in_status') %></p>
+    </a>
+  <% }) %>
+  <div class="rounded-card bg-white p-4 shadow-soft md:p-5">
+    <p class="text-[13px] text-ink-soft"><%= t('admin.revenue') %></p>
+    <p class="num mt-2 text-[22px] font-medium"><%= money(revenue.total) %></p>
+    <p class="mt-1 text-[12px] text-ink-faint"><%= t('admin.revenue_hint', { n: revenue.n }) %></p>
+  </div>
+  <div class="rounded-card bg-white p-4 shadow-soft md:p-5">
+    <p class="text-[13px] text-ink-soft"><%= t('admin.to_collect') %></p>
+    <p class="num mt-2 text-[22px] font-medium"><%= money(pending.total) %></p>
+    <p class="mt-1 text-[12px] text-ink-faint"><%= t('admin.to_collect_hint') %></p>
+  </div>
+  <div class="rounded-card bg-white p-4 shadow-soft md:p-5">
+    <p class="text-[13px] text-ink-soft"><%= t('admin.avg_rating') %></p>
+    <% if (rating.n) { %>
+      <p class="num mt-2 text-[22px] font-medium"><%= Number(rating.avg).toFixed(1) %> <span class="text-[14px] text-ink-soft">/ 5</span></p>
+      <p class="mt-1 text-[12px] text-ink-faint"><%= t('product.reviews', { n: rating.n }) %></p>
+    <% } else { %>
+      <p class="mt-2 text-[15px] text-ink-soft"><%= t('admin.no_ratings') %></p>
+    <% } %>
+  </div>
+</div>
+
+<div class="mt-8 grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+  <section class="rounded-card bg-white shadow-soft" aria-labelledby="latest-title">
+    <div class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+      <h2 id="latest-title" class="text-[16px] font-medium"><%= t('admin.latest_orders') %></h2>
+      <a href="/admin/orders" class="text-[14px] text-eva-deep underline-offset-4 hover:underline"><%= t('home.view_all') %></a>
+    </div>
+    <% if (!latest.length) { %>
+      <p class="px-5 py-10 text-center text-ink-soft"><%= t('admin.no_orders') %></p>
+    <% } else { %>
+      <ul class="divide-y divide-line">
+        <% latest.forEach(function (o) { %>
+          <li>
+            <a href="/admin/orders/<%= o.id %>" class="flex items-center gap-3 px-5 py-3 hover:bg-eva-mist active:bg-eva-blush/50">
+              <% if (o.image) { %><img src="<%= o.image %>" alt="" class="h-12 w-9 shrink-0 rounded object-cover"><% } else { %><span class="h-12 w-9 shrink-0 rounded" style="background: <%= o.swatch %>"></span><% } %>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[15px]"><span class="num font-medium" dir="ltr"><%= o.order_no %></span> · <%= o.customer_name %></p>
+                <p class="truncate text-[13px] text-ink-soft"><%= place(o).village %> · <%= formatDate(o.created_at) %></p>
+              </div>
+              <p class="num hidden text-[14px] sm:block"><%= money(o.total) %></p>
+              <%- include('../partials/status-pill', { status: o.status }) %>
+            </a>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+
+  <section class="rounded-card bg-white shadow-soft" aria-labelledby="stock-title">
+    <div class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+      <h2 id="stock-title" class="text-[16px] font-medium"><%= t('admin.low_stock') %></h2>
+      <a href="/admin/products" class="text-[14px] text-eva-deep underline-offset-4 hover:underline"><%= t('admin.products') %></a>
+    </div>
+    <% if (!lowStock.length) { %>
+      <p class="px-5 py-10 text-center text-ink-soft"><%= t('admin.stock_ok') %></p>
+    <% } else { %>
+      <ul class="divide-y divide-line">
+        <% lowStock.forEach(function (p) { %>
+          <li>
+            <a href="/admin/products/<%= p.id %>/edit" class="flex items-center gap-3 px-5 py-3 hover:bg-eva-mist active:bg-eva-blush/50">
+              <% if (p.image) { %><img src="<%= p.image %>" alt="" class="h-10 w-8 shrink-0 rounded object-cover"><% } else { %><span class="h-10 w-8 shrink-0 rounded" style="background: <%= p.swatch %>"></span><% } %>
+              <p class="min-w-0 flex-1 truncate text-[15px] <%= pname(p) ? '' : 'text-ink-faint' %>"><%= alabel(p) %></p>
+              <span class="num rounded-full px-2.5 py-0.5 text-[12px] font-medium <%= p.stock === 0 ? 'bg-[#FBE7EA] text-[#8E1238]' : 'bg-warn-soft text-warn' %>"><%= p.stock === 0 ? t('product.sold_out') : t('admin.n_left', { n: p.stock }) %></span>
+            </a>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>

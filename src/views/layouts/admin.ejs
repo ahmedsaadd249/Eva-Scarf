@@ -1,0 +1,72 @@
+<%
+  const anav = [
+    { href: '/admin', icon: 'chart', label: t('admin.overview'), on: path === '/admin' || path === '/admin/' },
+    { href: '/admin/orders', icon: 'box', label: t('admin.orders'), on: path.startsWith('/admin/orders') },
+    { href: '/admin/products', icon: 'tag', label: t('admin.products'), on: path.startsWith('/admin/products') },
+    { href: '/admin/delivery', icon: 'truck', label: t('admin.delivery'), on: path.startsWith('/admin/delivery') },
+    { href: '/admin/settings', icon: 'settings', label: t('admin.settings'), on: path.startsWith('/admin/settings') },
+  ];
+%><!doctype html>
+<html lang="<%= lang %>" dir="<%= dir %>">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> | <%= t('admin.dashboard') %></title>
+  <meta name="robots" content="noindex">
+  <meta name="csrf-token" content="<%= csrfToken %>">
+  <link rel="icon" type="image/png" href="/brand/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <% if (lang === 'ar') { %>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=Jost:wght@400;500;600&display=swap">
+  <% } else { %>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;1,400;1,500;1,600&display=swap">
+  <% } %>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/js/tw-config.js"></script>
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body class="min-h-screen bg-paper text-ink antialiased">
+  <header class="sticky top-0 z-50 border-b border-line bg-white/90 backdrop-blur-md">
+    <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 md:px-6">
+      <a href="/admin" class="press flex items-center gap-2.5 rounded-lg">
+        <img src="/brand/monogram-pink.png" alt="" class="h-9 w-auto">
+        <span class="leading-tight">
+          <span class="wordmark block text-[10px] text-eva-deep" dir="ltr">Eva Scarf</span>
+          <span class="block text-[14px] font-medium"><%= t('admin.dashboard') %></span>
+        </span>
+      </a>
+      <div class="flex items-center gap-1">
+        <a href="/" class="press hidden h-10 items-center gap-1.5 rounded-full px-3 text-[14px] text-ink-soft hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush sm:inline-flex"><%- include('../partials/icon', { name: 'external', cls: 'h-4 w-4' }) %><%= t('admin.view_store') %></a>
+        <a href="/lang/<%= lang === 'ar' ? 'en' : 'ar' %>" lang="<%= lang === 'ar' ? 'en' : 'ar' %>" class="press inline-flex h-10 items-center rounded-full px-3 text-[14px] text-ink-soft hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush"><%= t('nav.language_switch') %></a>
+        <form action="/account/logout" method="post">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="press grid h-10 w-10 place-items-center rounded-full text-ink-soft hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush" aria-label="<%= t('nav.logout') %>"><%- include('../partials/icon', { name: 'logout', cls: 'h-5 w-5', flipRtl: true }) %></button>
+        </form>
+      </div>
+    </div>
+    <nav class="no-scrollbar mx-auto flex max-w-7xl gap-1 overflow-x-auto px-3 pb-2 md:hidden" aria-label="<%= t('admin.dashboard') %>">
+      <% anav.forEach(function (n) { %>
+        <a href="<%= n.href %>" class="press inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[14px] <%= n.on ? 'bg-ink text-white' : 'text-ink-soft hover:bg-eva-blush/60 active:bg-eva-blush' %>" <%- n.on ? 'aria-current="page"' : '' %>><%- include('../partials/icon', { name: n.icon, cls: 'h-4 w-4' }) %><%= n.label %></a>
+      <% }) %>
+    </nav>
+  </header>
+
+  <%- include('../partials/flash') %>
+
+  <div class="mx-auto flex max-w-7xl gap-8 px-4 md:px-6">
+    <aside class="sticky top-16 hidden h-[calc(100vh-4rem)] w-56 shrink-0 py-8 md:block">
+      <nav class="space-y-1" aria-label="<%= t('admin.dashboard') %>">
+        <% anav.forEach(function (n) { %>
+          <a href="<%= n.href %>" class="press flex h-11 items-center gap-3 rounded-xl px-3.5 text-[15px] <%= n.on ? 'bg-ink text-white shadow-soft' : 'text-ink/80 hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush' %>" <%- n.on ? 'aria-current="page"' : '' %>><%- include('../partials/icon', { name: n.icon, cls: 'h-5 w-5' }) %><%= n.label %></a>
+        <% }) %>
+      </nav>
+    </aside>
+    <main id="main" class="min-w-0 flex-1 pb-20 pt-6 md:pt-8">
+      <%- body %>
+    </main>
+  </div>
+  <script type="application/json" id="client-i18n"><%- clientMessages %></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

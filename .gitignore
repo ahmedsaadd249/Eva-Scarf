@@ -1,0 +1,11 @@
+node_modules/
+.env
+data/
+uploads/*
+!uploads/.gitkeep
+outbox/
+temporary screenshots/
+.vercel/
+Screenshot/
+Collection/
+*.log

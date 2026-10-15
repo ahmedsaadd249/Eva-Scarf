@@ -1,0 +1,8 @@
+<%
+  const tones = {
+    processing: 'bg-warn-soft text-warn',
+    shipped: 'bg-[#E4ECF7] text-[#1F4E8C]',
+    delivered: 'bg-ok-soft text-ok',
+  };
+  const sicons = { processing: 'box', shipped: 'truck', delivered: 'check' };
+%><span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-medium <%= tones[status] %>"><%- include('icon', { name: sicons[status], cls: 'h-3.5 w-3.5', stroke: 2 }) %><%= t('status.' + status) %></span>

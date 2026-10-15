@@ -1,0 +1,17 @@
+<div class="mx-auto max-w-md px-4 pb-20 pt-10 md:pt-14">
+  <div class="rounded-card bg-white p-6 shadow-lift md:p-8">
+    <h1 class="display text-[32px] text-eva md:text-[38px]"><%= t('auth.reset_title') %></h1>
+    <% if (!valid) { %>
+      <p class="mt-3 text-[15px] text-ink-soft"><%= t('auth.reset_invalid') %></p>
+      <a href="/account/forgot" class="press mt-6 inline-flex h-12 items-center rounded-[10px] bg-ink px-6 text-white hover:bg-eva-deep active:bg-ink"><span class="btn-label"><%= t('auth.send_link') %></span></a>
+    <% } else { %>
+      <p class="mt-1 text-[15px] text-ink-soft"><%= t('auth.reset_sub') %></p>
+      <form action="/account/reset/<%= token %>" method="post" class="mt-6 space-y-5" novalidate data-once>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <%- include('../partials/password-field', { field: { name: 'password', label: t('profile.new_password'), error: errors.password, checklist: true } }) %>
+        <%- include('../partials/password-field', { field: { name: 'password_confirm', label: t('auth.password_confirm'), error: errors.password_confirm } }) %>
+        <button class="press flex h-[52px] w-full items-center justify-center rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60"><span class="btn-label"><%= t('auth.reset_save') %></span></button>
+      </form>
+    <% } %>
+  </div>
+</div>

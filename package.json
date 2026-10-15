@@ -1,0 +1,36 @@
+{
+  "name": "eva-scarf",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eva Scarf — online store for Sudanese tarhas",
+  "type": "module",
+  "main": "serve.mjs",
+  "scripts": {
+    "start": "node serve.mjs",
+    "db:setup": "node scripts/db-setup.js",
+    "migrate:sqlite": "node scripts/migrate-from-sqlite.js",
+    "seed": "node src/seed.js",
+    "test": "node --test test/*.test.js",
+    "e2e": "node scripts/e2e.mjs",
+    "import-collection": "node scripts/import-collection.js",
+    "test-email": "node scripts/test-email.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@vercel/functions": "^3.10.1",
+    "ejs": "^7.0.1",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.1.1",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
+    "puppeteer": "^25.14.0"
+  }
+}

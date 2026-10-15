@@ -1,0 +1,21 @@
+<div class="mx-auto max-w-md px-4 pb-20 pt-10 md:pt-14">
+  <div class="rounded-card bg-white p-6 shadow-lift md:p-8">
+    <img src="/brand/monogram-pink.png" alt="" class="h-14 w-auto">
+    <h1 class="display mt-5 text-[34px] text-eva md:text-[40px]"><%= t('auth.login_title') %></h1>
+    <p class="mt-1 text-[15px] text-ink-soft"><%= t('auth.login_sub') %></p>
+
+    <% if (errors.form) { %>
+      <p class="mt-5 flex items-start gap-2 rounded-xl bg-[#FBE7EA] px-4 py-3 text-[14px] text-[#8E1238]" role="alert"><%- include('../partials/icon', { name: 'alert', cls: 'mt-0.5 h-4 w-4 shrink-0' }) %><%= t(errors.form) %></p>
+    <% } %>
+
+    <form action="/account/login" method="post" class="mt-6 space-y-5" data-once>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <% if (typeof next !== 'undefined' && next) { %><input type="hidden" name="next" value="<%= next %>"><% } %>
+      <%- include('../partials/field', { field: { name: 'email', label: t('auth.email'), type: 'email', value: values.email, autocomplete: 'email', inputmode: 'email', fdir: 'ltr', required: true } }) %>
+      <%- include('../partials/password-field', { field: { name: 'password', label: t('auth.password'), autocomplete: 'current-password' } }) %>
+      <div class="-mt-1 text-end"><a href="/account/forgot" class="text-[14px] text-eva-deep underline-offset-4 hover:underline"><%= t('auth.forgot_link') %></a></div>
+      <button class="press flex h-[52px] w-full items-center justify-center rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60"><span class="btn-label"><%= t('auth.login') %></span></button>
+    </form>
+    <p class="mt-6 text-center text-[14px] text-ink-soft"><%= t('auth.no_account') %> <a href="/account/register<%= typeof next !== 'undefined' && next ? '?next=' + encodeURIComponent(next) : '' %>" class="font-medium text-eva-deep underline-offset-4 hover:underline"><%= t('auth.create_account') %></a></p>
+  </div>
+</div>

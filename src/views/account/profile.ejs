@@ -1,0 +1,111 @@
+<div class="mx-auto max-w-3xl px-4 pb-20 md:px-6">
+  <header class="pb-6 pt-10 md:pt-14">
+    <h1 class="display text-[38px] text-eva md:text-[50px]"><%= t('profile.title') %></h1>
+    <p class="mt-1 text-[15px] text-ink-soft"><%= t('profile.hello', { name: user.full_name }) %> · <span dir="ltr"><%= user.email %></span></p>
+  </header>
+
+  <%- include('../partials/account-tabs') %>
+
+  <% if (incomplete) { %>
+    <div class="mt-6 flex items-start gap-3 rounded-card bg-eva-blush px-4 py-3.5 text-[15px] text-eva-deep">
+      <%- include('../partials/icon', { name: 'pin', cls: 'mt-0.5 h-5 w-5 shrink-0' }) %>
+      <p><%= t('profile.incomplete') %></p>
+    </div>
+  <% } %>
+
+  <form action="/account/profile" method="post" class="mt-6 space-y-6" novalidate data-validate="profile" data-once>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <% if (typeof next !== 'undefined' && next) { %><input type="hidden" name="next" value="<%= next %>"><% } %>
+
+    <%# Shown when a save is refused (by the server, or by the browser script before sending). %>
+    <div data-form-error role="alert" <%= Object.keys(errors).length ? '' : 'hidden' %>>
+      <p class="flex items-start gap-2 rounded-card bg-[#FBE7EA] px-4 py-3.5 text-[15px] text-[#8E1238]">
+        <%- include('../partials/icon', { name: 'alert', cls: 'mt-0.5 h-5 w-5 shrink-0' }) %><span><%= t('profile.not_saved') %></span>
+      </p>
+    </div>
+
+    <section class="rounded-card bg-white p-5 shadow-soft md:p-6" aria-labelledby="sec-personal">
+      <h2 id="sec-personal" class="text-[17px] font-medium"><%= t('profile.personal') %></h2>
+      <div class="mt-4">
+        <%- include('../partials/field', { field: { name: 'full_name', label: t('auth.full_name'), value: values.full_name, error: errors.full_name, autocomplete: 'name', required: true } }) %>
+      </div>
+    </section>
+
+    <section class="rounded-card bg-white p-5 shadow-soft md:p-6" aria-labelledby="sec-address">
+      <h2 id="sec-address" class="text-[17px] font-medium"><%= t('profile.address') %></h2>
+      <p class="mt-1 text-[14px] text-ink-soft"><%= t('profile.address_hint') %></p>
+      <%
+        // City is only a filter for the neighborhood list; the neighborhood (zone) is what gets saved.
+        const selectedZone = Number(values.zone_id) || 0;
+        const zoneCity = cities.find(function (c) { return c.zones.some(function (z) { return z.id === selectedZone; }); });
+        const selectedCity = zoneCity ? zoneCity.key : (cities.length === 1 ? cities[0].key : '');
+        const selectCls = 'h-12 w-full appearance-none rounded-xl border bg-white pe-10 ps-4 text-[16px] text-ink outline-none transition-colors focus:border-eva-deep focus:ring-4 focus:ring-eva/10';
+      %>
+      <% if (!cities.length) { %>
+        <p class="mt-4 rounded-xl bg-warn-soft px-4 py-3 text-[14px] text-warn"><%= t('profile.no_zones') %></p>
+      <% } %>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div data-field>
+          <label for="f-city" class="mb-1.5 block text-[14px] font-medium text-ink"><%= t('profile.city') %></label>
+          <div class="relative">
+            <select id="f-city" data-zone-city class="<%= selectCls %> border-line hover:border-ink/25">
+              <option value=""><%= t('profile.choose_city') %></option>
+              <% cities.forEach(function (c) { %><option value="<%= c.key %>" <%= c.key === selectedCity ? 'selected' : '' %>><%= c.label %></option><% }) %>
+            </select>
+            <%- include('../partials/icon', { name: 'chevron-down', cls: 'pointer-events-none absolute end-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft' }) %>
+          </div>
+        </div>
+        <div data-field>
+          <label for="f-zone_id" class="mb-1.5 block text-[14px] font-medium text-ink"><%= t('profile.village') %></label>
+          <div class="relative">
+            <select id="f-zone_id" name="zone_id" required data-zone-select <%- errors.zone_id ? 'aria-invalid="true" aria-describedby="f-zone_id-error"' : 'aria-describedby="f-zone_id-hint"' %>
+              class="<%= selectCls %> <%= errors.zone_id ? 'border-[#B3203A]' : 'border-line hover:border-ink/25' %>">
+              <option value=""><%= t('profile.choose_zone') %></option>
+              <%# Neighborhood names only: no city headings and no prices (the fee shows in the cart). %>
+              <% cities.forEach(function (c) { c.zones.forEach(function (z) { %>
+                <option value="<%= z.id %>" data-city="<%= c.key %>" <%= z.id === selectedZone ? 'selected' : '' %>><%= L(z, 'name') %></option>
+              <% }) }) %>
+            </select>
+            <%- include('../partials/icon', { name: 'chevron-down', cls: 'pointer-events-none absolute end-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft' }) %>
+          </div>
+          <% if (errors.zone_id) { %>
+            <p id="f-zone_id-error" class="mt-1.5 flex items-center gap-1.5 text-[13px] text-[#B3203A]"><%- include('../partials/icon', { name: 'alert', cls: 'h-4 w-4 shrink-0' }) %><%= t(errors.zone_id) %></p>
+          <% } else { %>
+            <p id="f-zone_id-hint" class="mt-1.5 text-[13px] text-ink-soft"><%= t('profile.zone_hint') %></p>
+          <% } %>
+        </div>
+        <div class="sm:col-span-2">
+          <%- include('../partials/field', { field: { name: 'street', label: t('profile.street'), value: values.street, error: errors.street, autocomplete: 'address-line1', required: true } }) %>
+        </div>
+        <%- include('../partials/field', { field: { name: 'building_no', label: t('profile.building_no'), value: values.building_no, error: errors.building_no, required: true } }) %>
+        <%- include('../partials/field', { field: { name: 'apartment_no', label: t('profile.apartment_no'), value: values.apartment_no, error: errors.apartment_no, autocomplete: 'address-line2', required: true } }) %>
+      </div>
+    </section>
+
+    <section class="rounded-card bg-white p-5 shadow-soft md:p-6" aria-labelledby="sec-phones">
+      <h2 id="sec-phones" class="text-[17px] font-medium"><%= t('profile.phones') %></h2>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <%- include('../partials/field', { field: { name: 'phone_primary', label: t('profile.phone_primary'), type: 'tel', value: values.phone_primary, error: errors.phone_primary, autocomplete: 'tel', inputmode: 'tel', fdir: 'ltr', required: true, hint: t('profile.phone_hint') } }) %>
+        <%- include('../partials/field', { field: { name: 'phone_secondary', label: t('profile.phone_secondary'), type: 'tel', value: values.phone_secondary, error: errors.phone_secondary, inputmode: 'tel', fdir: 'ltr', required: true, hint: t('profile.phone_secondary_hint') } }) %>
+      </div>
+    </section>
+
+    <button class="press flex h-[52px] w-full items-center justify-center rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60 sm:w-auto sm:px-10">
+      <span class="btn-label"><%= typeof next !== 'undefined' && next === '/checkout' ? t('profile.save_continue') : t('profile.save') %></span>
+    </button>
+  </form>
+
+  <details class="group mt-10 rounded-card bg-white shadow-soft" <%= Object.keys(passwordErrors).length ? 'open' : '' %>>
+    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-card p-5 text-[17px] font-medium hover:bg-eva-mist md:p-6 [&::-webkit-details-marker]:hidden">
+      <%= t('profile.password_section') %>
+      <%- include('../partials/icon', { name: 'chevron-down', cls: 'h-5 w-5 text-ink-soft transition-transform duration-300 group-open:rotate-180' }) %>
+    </summary>
+    <form action="/account/password" method="post" class="space-y-5 px-5 pb-6 md:px-6" novalidate data-once>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <%- include('../partials/password-field', { field: { name: 'current_password', label: t('profile.current_password'), autocomplete: 'current-password', error: passwordErrors.current_password } }) %>
+      <%- include('../partials/password-field', { field: { name: 'new_password', label: t('profile.new_password'), error: passwordErrors.new_password, checklist: true } }) %>
+      <%- include('../partials/password-field', { field: { name: 'new_password_confirm', label: t('auth.password_confirm'), error: passwordErrors.new_password_confirm } }) %>
+      <button class="press flex h-12 items-center justify-center rounded-[10px] border border-ink px-7 hover:bg-ink hover:text-white active:bg-eva-deep disabled:opacity-60"><span class="btn-label"><%= t('profile.change_password') %></span></button>
+    </form>
+  </details>
+</div>

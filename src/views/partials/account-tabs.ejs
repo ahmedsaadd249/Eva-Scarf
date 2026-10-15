@@ -1,0 +1,18 @@
+<%
+  const atabs = [
+    { href: '/account/profile', label: t('nav.profile'), on: path === '/account/profile' },
+    { href: '/account/orders', label: t('nav.orders'), on: path.startsWith('/account/orders') },
+  ];
+  if (user.role === 'admin') atabs.push({ href: '/admin', label: t('nav.admin'), on: false });
+%>
+<div class="flex items-center justify-between gap-3 border-b border-line">
+  <nav class="no-scrollbar -mb-px flex gap-1 overflow-x-auto" aria-label="<%= t('nav.account') %>">
+    <% atabs.forEach(function (tab) { %>
+      <a href="<%= tab.href %>" class="whitespace-nowrap border-b-2 px-3 pb-3 pt-1 text-[15px] transition-colors <%= tab.on ? 'border-eva-deep text-eva-deep' : 'border-transparent text-ink-soft hover:text-ink' %>" <%- tab.on ? 'aria-current="page"' : '' %>><%= tab.label %></a>
+    <% }) %>
+  </nav>
+  <form action="/account/logout" method="post" class="pb-2">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <button class="press flex h-9 items-center gap-1.5 rounded-full px-3 text-[14px] text-ink-soft hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush"><%- include('icon', { name: 'logout', cls: 'h-4 w-4', flipRtl: true }) %><%= t('nav.logout') %></button>
+  </form>
+</div>

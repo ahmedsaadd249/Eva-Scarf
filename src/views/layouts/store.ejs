@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="<%= lang %>" dir="<%= dir %>">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title><%= title ? `${title} | ${t('meta.brand')}` : t('meta.title') %></title>
+  <meta name="description" content="<%= t('meta.description') %>">
+  <meta name="theme-color" content="#FAF5F1">
+  <meta name="csrf-token" content="<%= csrfToken %>">
+  <link rel="icon" type="image/png" href="/brand/favicon.png">
+  <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <% if (lang === 'ar') { %>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&family=Jost:wght@400;500;600&display=swap">
+  <% } else { %>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;1,400;1,500;1,600&display=swap">
+  <% } %>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/js/tw-config.js"></script>
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body class="min-h-screen bg-paper text-ink antialiased">
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[80] focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white"><%= t('nav.skip') %></a>
+
+  <%- include('../partials/header') %>
+  <%- include('../partials/flash') %>
+
+  <main id="main">
+    <%- body %>
+  </main>
+
+  <%- include('../partials/footer') %>
+  <%- include('../partials/bottom-nav') %>
+
+  <div id="toast-region" class="pointer-events-none fixed inset-x-0 top-[76px] z-[70] flex flex-col items-center gap-2 px-4" aria-live="polite"></div>
+  <script type="application/json" id="client-i18n"><%- clientMessages %></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

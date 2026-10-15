@@ -1,0 +1,80 @@
+<%
+  const navLinks = [
+    { href: '/shop', label: t('nav.shop'), active: path === '/shop' },
+  ];
+%>
+<header class="sticky top-0 z-50 border-b border-line/70 bg-paper/90 backdrop-blur-md">
+  <div class="mx-auto grid h-[68px] max-w-6xl grid-cols-[1fr_auto_1fr] items-center px-4 md:h-[76px] md:px-6">
+    <div class="flex items-center gap-1 md:gap-6">
+      <button type="button" data-drawer-open class="press -ms-2 grid h-11 w-11 place-items-center rounded-full text-ink hover:bg-eva-blush/60 active:bg-eva-blush md:hidden" aria-label="<%= t('nav.menu') %>" aria-controls="drawer" aria-expanded="false">
+        <%- include('icon', { name: 'menu', cls: 'h-6 w-6' }) %>
+      </button>
+      <nav class="hidden items-center gap-6 text-[15px] md:flex" aria-label="<%= t('nav.main') %>">
+        <% navLinks.forEach(function (l) { %>
+          <a href="<%= l.href %>" class="relative py-2 text-ink/80 transition-colors hover:text-eva-deep active:text-eva <%= l.active ? '!text-eva-deep' : '' %>"><%= l.label %></a>
+        <% }) %>
+      </nav>
+    </div>
+
+    <a href="/" dir="ltr" class="press group flex items-center gap-2.5 rounded-lg px-1" aria-label="<%= t('meta.brand') %>">
+      <img src="/brand/monogram-pink.png" alt="" width="33" height="38" class="h-[38px] w-auto transition-transform duration-500 ease-spring group-hover:-rotate-3">
+      <span class="wordmark text-[11px] text-eva-deep md:text-[12px]" dir="ltr">Eva Scarf</span>
+    </a>
+
+    <div class="flex items-center justify-end gap-0.5 md:gap-2">
+      <a href="/lang/<%= lang === 'ar' ? 'en' : 'ar' %>" class="press hidden h-11 items-center rounded-full px-3 text-[14px] text-ink/80 hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush md:inline-flex" lang="<%= lang === 'ar' ? 'en' : 'ar' %>"><%= t('nav.language_switch') %></a>
+      <a href="<%= user ? '/account/profile' : '/account/login' %>" class="press hidden h-11 w-11 place-items-center rounded-full hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush md:grid" aria-label="<%= user ? t('nav.account') : t('nav.login') %>">
+        <%- include('icon', { name: 'user', cls: 'h-[22px] w-[22px]' }) %>
+      </a>
+      <button type="button" data-search-open class="press grid h-11 w-11 place-items-center rounded-full hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush" aria-label="<%= t('nav.search') %>" aria-controls="search-panel" aria-expanded="false">
+        <%- include('icon', { name: 'search', cls: 'h-[22px] w-[22px]' }) %>
+      </button>
+      <a href="/cart" class="press relative -me-2 grid h-11 w-11 place-items-center rounded-full hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush" aria-label="<%= t('nav.cart') %>">
+        <%- include('icon', { name: 'bag', cls: 'h-[22px] w-[22px]' }) %>
+        <span data-cart-count class="num absolute end-0.5 top-0.5 grid min-w-[19px] place-items-center rounded-full bg-eva px-1 text-[11px] font-semibold leading-[19px] text-white <%= cartCount ? '' : 'hidden' %>"><%= cartCount %></span>
+      </a>
+    </div>
+  </div>
+
+  <div id="search-panel" data-open="false" class="search-panel absolute inset-x-0 top-full border-b border-line bg-paper/95 shadow-lift backdrop-blur-md">
+    <form action="/shop" method="get" role="search" class="mx-auto flex max-w-2xl items-center gap-2 px-4 py-4">
+      <label for="search-input" class="sr-only"><%= t('nav.search') %></label>
+      <input id="search-input" name="q" type="search" placeholder="<%= t('shop.search_placeholder') %>" autocomplete="off" class="h-12 flex-1 rounded-full border border-line bg-white px-5 text-[16px] outline-none transition-colors placeholder:text-ink-faint focus:border-eva-deep">
+      <button class="press h-12 rounded-full bg-ink px-5 text-white hover:bg-eva-deep active:bg-ink"><span class="btn-label"><%= t('nav.search') %></span></button>
+    </form>
+  </div>
+</header>
+
+<%# Mobile menu drawer %>
+<div data-scrim data-open="false" class="scrim fixed inset-0 z-[60] bg-ink/40 md:hidden"></div>
+<aside id="drawer" data-open="false" class="drawer fixed inset-y-0 start-0 z-[61] flex w-[86%] max-w-[360px] flex-col bg-paper shadow-float md:hidden" aria-label="<%= t('nav.menu') %>" aria-hidden="true">
+  <div class="flex h-[68px] items-center justify-between border-b border-line px-4">
+    <span class="wordmark text-[11px] text-eva-deep" dir="ltr">Eva Scarf</span>
+    <button type="button" data-drawer-close class="press -me-2 grid h-11 w-11 place-items-center rounded-full hover:bg-eva-blush/60 active:bg-eva-blush" aria-label="<%= t('nav.close') %>">
+      <%- include('icon', { name: 'close', cls: 'h-6 w-6' }) %>
+    </button>
+  </div>
+  <nav class="flex-1 overflow-y-auto px-4 py-4" aria-label="<%= t('nav.main') %>">
+    <a href="/shop" class="flex items-center justify-between rounded-xl px-3 py-3.5 text-[17px] hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.shop_all') %><%- include('icon', { name: 'chevron-right', cls: 'h-4 w-4 text-ink-faint', flipRtl: true }) %></a>
+    <div class="my-4 h-px bg-line"></div>
+    <% if (user) { %>
+      <a href="/account/profile" class="block rounded-xl px-3 py-3 hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.profile') %></a>
+      <a href="/account/orders" class="block rounded-xl px-3 py-3 hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.orders') %></a>
+      <% if (user.role === 'admin') { %>
+        <a href="/admin" class="block rounded-xl px-3 py-3 font-medium text-eva-deep hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.admin') %></a>
+      <% } %>
+      <form action="/account/logout" method="post">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="w-full rounded-xl px-3 py-3 text-start text-ink-soft hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.logout') %></button>
+      </form>
+    <% } else { %>
+      <a href="/account/login" class="block rounded-xl px-3 py-3 hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.login') %></a>
+      <a href="/account/register" class="block rounded-xl px-3 py-3 hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.register') %></a>
+    <% } %>
+  </nav>
+  <div class="border-t border-line p-4">
+    <a href="/lang/<%= lang === 'ar' ? 'en' : 'ar' %>" lang="<%= lang === 'ar' ? 'en' : 'ar' %>" class="press flex h-12 items-center justify-center gap-2 rounded-full border border-ink/15 hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush">
+      <%- include('icon', { name: 'globe', cls: 'h-5 w-5' }) %><%= t('nav.language_switch') %>
+    </a>
+  </div>
+</aside>

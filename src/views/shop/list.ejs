@@ -1,0 +1,34 @@
+<div class="mx-auto max-w-6xl px-4 md:px-6">
+  <header class="pb-7 pt-10 text-center md:pb-9 md:pt-14">
+    <h1 class="display text-[38px] text-eva md:text-[54px]"><%= title %></h1>
+  </header>
+
+  <div class="sticky top-[68px] z-30 -mx-4 border-y border-line bg-paper/92 px-4 py-2.5 backdrop-blur-md md:top-[76px] md:-mx-6 md:px-6">
+    <div class="flex items-center justify-between gap-3">
+      <p class="text-[14px] text-ink-soft"><%= t('shop.count', { n: products.length }) %></p>
+      <form action="/shop" method="get" class="relative shrink-0" data-autosubmit>
+        <% if (search) { %><input type="hidden" name="q" value="<%= search %>"><% } %>
+        <label for="sort" class="sr-only"><%= t('shop.sort_label') %></label>
+        <select id="sort" name="sort" class="h-10 appearance-none rounded-full border border-line bg-white pe-9 ps-4 text-[14px] outline-none transition-colors hover:border-eva-deep focus:border-eva-deep">
+          <% ['featured', 'newest', 'price_asc', 'price_desc'].forEach(function (s) { %>
+            <option value="<%= s %>" <%= sort === s ? 'selected' : '' %>><%= t('shop.sort.' + s) %></option>
+          <% }) %>
+        </select>
+        <%- include('../partials/icon', { name: 'chevron-down', cls: 'pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft' }) %>
+        <noscript><button class="ms-2 h-10 rounded-full bg-ink px-4 text-white"><%= t('shop.apply') %></button></noscript>
+      </form>
+    </div>
+  </div>
+
+  <% if (products.length) { %>
+    <div class="grid grid-cols-2 gap-x-3 gap-y-9 pb-20 pt-8 md:grid-cols-3 md:gap-x-5 md:pt-10 lg:grid-cols-4">
+      <% products.forEach(function (p) { %><%- include('../partials/product-card', { p }) %><% }) %>
+    </div>
+  <% } else { %>
+    <div class="mx-auto max-w-sm py-24 text-center">
+      <img src="/brand/monogram-pink.png" alt="" class="mx-auto h-20 w-auto opacity-40">
+      <p class="mt-6 text-[17px]"><%= search ? t('shop.empty_search', { q: search }) : t('shop.empty') %></p>
+      <a href="/shop" class="press mt-6 inline-flex h-12 items-center rounded-[10px] bg-ink px-7 text-white hover:bg-eva-deep active:bg-ink"><span class="btn-label"><%= t('shop.empty_cta') %></span></a>
+    </div>
+  <% } %>
+</div>

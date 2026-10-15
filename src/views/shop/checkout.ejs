@@ -1,0 +1,62 @@
+<div class="mx-auto max-w-5xl px-4 pb-20 md:px-6">
+  <header class="pb-6 pt-10 md:pt-14">
+    <h1 class="display text-[38px] text-eva md:text-[52px]"><%= t('checkout.title') %></h1>
+  </header>
+
+  <div class="grid gap-6 md:grid-cols-[1fr_360px] md:items-start lg:gap-10">
+    <div class="space-y-5">
+      <section class="rounded-card bg-white p-5 shadow-soft" aria-labelledby="deliver-title">
+        <div class="flex items-center justify-between gap-3">
+          <h2 id="deliver-title" class="flex items-center gap-2 text-[16px] font-medium"><%- include('../partials/icon', { name: 'pin', cls: 'h-5 w-5 text-eva-deep' }) %><%= t('checkout.deliver_to') %></h2>
+          <a href="/account/profile?next=/checkout" class="press inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[14px] text-eva-deep hover:bg-eva-blush/60 active:bg-eva-blush"><%- include('../partials/icon', { name: 'edit', cls: 'h-4 w-4' }) %><%= t('checkout.edit') %></a>
+        </div>
+        <div class="mt-3 text-[15px] leading-relaxed">
+          <p class="font-medium"><%= user.full_name %></p>
+          <p class="text-ink/85"><%= address(user) %></p>
+          <p class="mt-1 text-ink-soft"><span dir="ltr"><%= user.phone_primary %></span><% if (user.phone_secondary) { %> · <span dir="ltr"><%= user.phone_secondary %></span><% } %></p>
+          <p class="text-ink-soft" dir="ltr" style="text-align: start"><%= user.email %></p>
+        </div>
+      </section>
+
+      <section class="rounded-card bg-white p-5 shadow-soft" aria-labelledby="pay-title">
+        <h2 id="pay-title" class="flex items-center gap-2 text-[16px] font-medium"><%- include('../partials/icon', { name: 'truck', cls: 'h-5 w-5 text-eva-deep' }) %><%= t('checkout.payment') %></h2>
+        <label class="mt-3 flex cursor-default items-start gap-3 rounded-xl border-2 border-eva-deep bg-eva-mist p-4">
+          <input type="radio" checked readonly class="mt-1 h-4 w-4 accent-[#B4186F]" aria-describedby="cod-desc">
+          <span>
+            <span class="block text-[15px] font-medium"><%= t('checkout.cod') %></span>
+            <span id="cod-desc" class="block text-[14px] text-ink-soft"><%= t('checkout.cod_desc', { total: money(totals.total) }) %></span>
+          </span>
+        </label>
+      </section>
+
+      <section class="rounded-card bg-white p-5 shadow-soft" aria-labelledby="items-title">
+        <h2 id="items-title" class="text-[16px] font-medium"><%= t('checkout.items', { n: totals.item_count }) %></h2>
+        <ul class="mt-3 divide-y divide-line">
+          <% lines.forEach(function (line) { const p = line.product; %>
+            <li class="flex items-center gap-3 py-3">
+              <% if (p.image) { %><img src="<%= p.image %>" alt="" class="h-[72px] w-[54px] shrink-0 rounded-lg object-cover"><% } else { %><span class="h-[72px] w-[54px] shrink-0 rounded-lg" style="background: <%= p.swatch %>"></span><% } %>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-[15px] font-medium"><%= pname(p) %></p>
+                <p class="num text-[13px] text-ink-soft"><%= t('email.qty_times', { qty: line.qty, price: money(line.unit_final) }) %></p>
+              </div>
+              <p class="num text-[15px]"><%= money(line.line_total) %></p>
+            </li>
+          <% }) %>
+        </ul>
+      </section>
+    </div>
+
+    <aside class="rounded-card bg-white p-5 shadow-lift md:sticky md:top-[100px] md:p-6" aria-labelledby="summary-title">
+      <h2 id="summary-title" class="text-[17px] font-medium"><%= t('cart.summary') %></h2>
+      <%- include('../partials/totals', { totals }) %>
+      <form action="/checkout" method="post" class="mt-6" data-once>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="expected_total" value="<%= totals.total %>">
+        <button class="press flex h-[54px] w-full items-center justify-center gap-2 rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60">
+          <%- include('../partials/icon', { name: 'check', cls: 'h-5 w-5' }) %><span class="btn-label"><%= t('checkout.confirm') %></span>
+        </button>
+      </form>
+      <p class="mt-3 text-center text-[13px] leading-relaxed text-ink-soft"><%= t('checkout.confirm_note', { email: user.email }) %></p>
+    </aside>
+  </div>
+</div>

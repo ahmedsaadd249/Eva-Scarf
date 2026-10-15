@@ -1,0 +1,10 @@
+<% const v = Number(value) || 0; %>
+<span class="inline-flex items-center gap-1.5" title="<%= t('product.rating_of', { avg: v.toFixed(1) }) %>">
+  <span class="inline-flex text-eva" aria-hidden="true" dir="ltr">
+    <% for (let i = 1; i <= 5; i++) { %>
+      <%- include('icon', { name: v >= i - 0.25 ? 'star-solid' : 'star', cls: size, stroke: 1.5 }) %>
+    <% } %>
+  </span>
+  <span class="sr-only"><%= t('product.rating_of', { avg: v.toFixed(1) }) %></span>
+  <% if (typeof count !== 'undefined' && count) { %><span class="num text-[13px] text-ink-soft"><%= t('product.reviews', { n: count }) %></span><% } %>
+</span>

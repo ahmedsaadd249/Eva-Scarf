@@ -1,0 +1,26 @@
+<%
+  const f = {
+    type: 'text', value: '', error: null, autocomplete: 'off', hint: '', inputmode: '', fdir: '', required: false, optional: false, attrs: '', placeholder: '',
+    ...field,
+  };
+  const id = 'f-' + f.name;
+  const describedBy = [f.hint ? id + '-hint' : '', f.error ? id + '-error' : ''].filter(Boolean).join(' ');
+%>
+<div data-field>
+  <label for="<%= id %>" class="mb-1.5 flex items-baseline justify-between gap-2 text-[14px] font-medium text-ink">
+    <span><%= f.label %></span>
+    <% if (f.optional) { %><span class="text-[12px] font-normal text-ink-faint"><%= t('profile.optional') %></span><% } %>
+  </label>
+  <input id="<%= id %>" name="<%= f.name %>" type="<%= f.type %>" value="<%= f.value ?? '' %>"
+    autocomplete="<%= f.autocomplete %>"
+    <% if (f.inputmode) { %>inputmode="<%= f.inputmode %>"<% } %>
+    <% if (f.fdir) { %>dir="<%= f.fdir %>"<% } %>
+    <% if (f.placeholder) { %>placeholder="<%= f.placeholder %>"<% } %>
+    <% if (f.required) { %>required<% } %>
+    <% if (f.error) { %>aria-invalid="true"<% } %>
+    <% if (describedBy) { %>aria-describedby="<%= describedBy %>"<% } %>
+    <%- f.attrs %>
+    class="h-12 w-full rounded-xl border bg-white px-4 text-[16px] text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-eva-deep focus:ring-4 focus:ring-eva/10 <%= f.error ? 'border-[#B3203A]' : 'border-line hover:border-ink/25' %> <%= f.fdir === 'ltr' && dir === 'rtl' ? 'text-end' : '' %>">
+  <% if (f.hint) { %><p id="<%= id %>-hint" class="mt-1.5 text-[13px] text-ink-soft"><%= f.hint %></p><% } %>
+  <% if (f.error) { %><p id="<%= id %>-error" class="mt-1.5 flex items-center gap-1.5 text-[13px] text-[#B3203A]"><%- include('icon', { name: 'alert', cls: 'h-4 w-4 shrink-0' }) %><%= t(f.error) %></p><% } %>
+</div>

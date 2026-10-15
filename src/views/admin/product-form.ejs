@@ -1,0 +1,120 @@
+<%
+  const action = product ? '/admin/products/' + product.id : '/admin/products';
+  const err = function (k) { return errors[k] ? '<p class="mt-1.5 text-[13px] text-[#B3203A]">' + t(errors[k]) + '</p>' : ''; };
+  const input = 'h-12 w-full rounded-xl border bg-white px-4 text-[16px] outline-none transition-colors hover:border-ink/25 focus:border-eva-deep focus:ring-4 focus:ring-eva/10';
+  const area = 'w-full rounded-xl border border-line bg-white px-4 py-3 text-[16px] outline-none transition-colors hover:border-ink/25 focus:border-eva-deep focus:ring-4 focus:ring-eva/10';
+%>
+<a href="/admin/products" class="inline-flex items-center gap-1 text-[14px] text-ink-soft hover:text-eva-deep"><%- include('../partials/icon', { name: 'chevron-left', cls: 'h-4 w-4', flipRtl: true }) %><%= t('admin.products') %></a>
+<div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+  <h1 class="display text-[32px] text-eva md:text-[40px]"><%= product ? title : t('admin.product_new') %></h1>
+  <% if (product && !product.is_archived && product.is_active) { %>
+    <a href="/product/<%= product.slug %>" class="press inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[14px] text-eva-deep hover:bg-eva-blush/60 active:bg-eva-blush"><%- include('../partials/icon', { name: 'external', cls: 'h-4 w-4' }) %><%= t('admin.view_in_store') %></a>
+  <% } %>
+</div>
+<% if (product && product.is_archived) { %>
+  <p class="mt-3 rounded-xl bg-warn-soft px-4 py-3 text-[14px] text-warn"><%= t('admin.archived_banner') %></p>
+<% } %>
+
+<form action="<%= action %>" method="post" enctype="multipart/form-data" class="mt-6 grid gap-5 xl:grid-cols-[1.4fr_1fr]" novalidate data-once>
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <div class="space-y-5">
+    <section class="rounded-card bg-white p-5 shadow-soft md:p-6">
+      <h2 class="text-[16px] font-medium"><%= t('admin.details') %></h2>
+      <p class="mt-1 text-[13px] text-ink-soft"><%= t('admin.name_hint') %></p>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="name_ar" class="mb-1.5 flex items-baseline justify-between gap-2 text-[14px] font-medium"><span><%= t('admin.name_ar') %></span><span class="text-[12px] font-normal text-ink-faint"><%= t('profile.optional') %></span></label>
+          <input id="name_ar" name="name_ar" dir="rtl" lang="ar" value="<%= values.name_ar || '' %>" class="<%= input %> border-line">
+        </div>
+        <div>
+          <label for="name_en" class="mb-1.5 flex items-baseline justify-between gap-2 text-[14px] font-medium"><span><%= t('admin.name_en') %></span><span class="text-[12px] font-normal text-ink-faint"><%= t('profile.optional') %></span></label>
+          <input id="name_en" name="name_en" dir="ltr" lang="en" value="<%= values.name_en || '' %>" class="<%= input %> border-line">
+        </div>
+        <div>
+          <label for="description_ar" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.description_ar') %></label>
+          <textarea id="description_ar" name="description_ar" dir="rtl" lang="ar" rows="4" class="<%= area %>"><%= values.description_ar || '' %></textarea>
+        </div>
+        <div>
+          <label for="description_en" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.description_en') %></label>
+          <textarea id="description_en" name="description_en" dir="ltr" lang="en" rows="4" class="<%= area %>"><%= values.description_en || '' %></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-card bg-white p-5 shadow-soft md:p-6">
+      <h2 class="text-[16px] font-medium"><%= t('admin.images') %></h2>
+      <p class="mt-1 text-[13px] text-ink-soft"><%= t('admin.images_hint') %></p>
+      <% if (images.length) { %>
+        <ul class="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
+          <% images.forEach(function (img, i) { %>
+            <li class="relative">
+              <img src="<%= img.path %>" alt="" class="aspect-[3/4] w-full rounded-lg object-cover <%= i === 0 ? 'ring-2 ring-eva-deep ring-offset-2' : '' %>">
+              <% if (i === 0) { %><span class="absolute start-1.5 top-1.5 rounded-full bg-eva-deep px-2 py-0.5 text-[11px] text-white"><%= t('admin.main_image') %></span><% } %>
+              <div class="mt-1.5 flex gap-1.5">
+                <% if (i !== 0) { %><button form="img-main-<%= img.id %>" class="press h-8 flex-1 rounded-md border border-line text-[12px] hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush"><%= t('admin.make_main') %></button><% } %>
+                <button form="img-del-<%= img.id %>" class="press grid h-8 w-8 place-items-center rounded-md border border-line text-ink-soft hover:border-[#B3203A] hover:text-[#B3203A] active:bg-[#FBE7EA]" aria-label="<%= t('admin.delete_image') %>"><%- include('../partials/icon', { name: 'trash', cls: 'h-4 w-4' }) %></button>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+      <label class="mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors hover:border-eva-deep hover:bg-eva-mist <%= errors.images ? 'border-[#B3203A]' : 'border-line' %>">
+        <%- include('../partials/icon', { name: 'image', cls: 'h-8 w-8 text-eva-deep' }) %>
+        <span class="text-[15px] font-medium"><%= t('admin.upload_images') %></span>
+        <span class="text-[12px] text-ink-soft"><%= t('admin.upload_hint') %></span>
+        <input type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" data-image-input>
+      </label>
+      <div data-image-preview class="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6"></div>
+      <%- err('images') %>
+    </section>
+  </div>
+
+  <div class="space-y-5">
+    <section class="rounded-card bg-white p-5 shadow-soft md:p-6">
+      <h2 class="text-[16px] font-medium"><%= t('admin.pricing') %></h2>
+      <div class="mt-4 grid grid-cols-2 gap-4">
+        <div>
+          <label for="price" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.price_egp') %></label>
+          <input id="price" name="price" inputmode="decimal" value="<%= values.price_input || '' %>" placeholder="450.00" class="num <%= input %> <%= errors.price ? 'border-[#B3203A]' : 'border-line' %>" data-price>
+          <%- err('price') %>
+        </div>
+        <div>
+          <label for="discount_percent" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.discount_percent') %></label>
+          <input id="discount_percent" name="discount_percent" type="number" min="0" max="90" inputmode="numeric" value="<%= values.discount_percent ?? 0 %>" class="num <%= input %> <%= errors.discount_percent ? 'border-[#B3203A]' : 'border-line' %>" data-discount>
+          <%- err('discount_percent') %>
+        </div>
+      </div>
+      <p class="mt-4 rounded-xl bg-eva-mist px-4 py-3 text-[14px]"><%= t('admin.customer_pays') %> <strong class="num" data-final-price data-lang="<%= lang %>">—</strong></p>
+    </section>
+
+    <section class="rounded-card bg-white p-5 shadow-soft md:p-6">
+      <h2 class="text-[16px] font-medium"><%= t('admin.inventory') %></h2>
+      <div class="mt-4">
+        <label for="stock" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.stock_qty') %></label>
+        <input id="stock" name="stock" type="number" min="0" inputmode="numeric" value="<%= values.stock >= 0 ? values.stock : '' %>" class="num <%= input %> <%= errors.stock ? 'border-[#B3203A]' : 'border-line' %>">
+        <%- err('stock') %>
+      </div>
+      <div class="mt-5 space-y-3">
+        <label class="flex items-start gap-3"><input type="checkbox" name="is_active" value="1" <%= values.is_active ? 'checked' : '' %> class="mt-1 h-4 w-4 accent-[#B4186F]"><span><span class="block text-[15px] font-medium"><%= t('admin.visible_in_store') %></span><span class="block text-[13px] text-ink-soft"><%= t('admin.visible_hint') %></span></span></label>
+        <label class="flex items-start gap-3"><input type="checkbox" name="is_featured" value="1" <%= values.is_featured ? 'checked' : '' %> class="mt-1 h-4 w-4 accent-[#B4186F]"><span><span class="block text-[15px] font-medium"><%= t('admin.featured') %></span><span class="block text-[13px] text-ink-soft"><%= t('admin.featured_hint') %></span></span></label>
+      </div>
+    </section>
+
+    <button class="press flex h-[52px] w-full items-center justify-center rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60"><span class="btn-label"><%= product ? t('admin.save_changes') : t('admin.create_product') %></span></button>
+  </div>
+</form>
+
+<% if (product) { %>
+  <% images.forEach(function (img) { %>
+    <form id="img-main-<%= img.id %>" action="/admin/products/<%= product.id %>/images/<%= img.id %>/main" method="post" class="hidden"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
+    <form id="img-del-<%= img.id %>" action="/admin/products/<%= product.id %>/images/<%= img.id %>/delete" method="post" class="hidden" data-confirm="<%= t('admin.confirm_image') %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
+  <% }) %>
+  <% if (!product.is_archived) { %>
+    <form action="/admin/products/<%= product.id %>/delete" method="post" class="mt-10 border-t border-line pt-6" data-confirm="<%= t('admin.confirm_delete', { name: title }) %>">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="press inline-flex h-11 items-center gap-2 rounded-[10px] border border-[#B3203A]/40 px-5 text-[14px] text-[#B3203A] hover:bg-[#FBE7EA] active:bg-[#F6D3D9]"><%- include('../partials/icon', { name: 'trash', cls: 'h-4 w-4' }) %><%= t('admin.delete_product') %></button>
+      <p class="mt-2 text-[13px] text-ink-soft"><%= t('admin.delete_hint') %></p>
+    </form>
+  <% } %>
+<% } %>

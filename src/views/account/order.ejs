@@ -1,0 +1,76 @@
+<div class="mx-auto max-w-3xl px-4 pb-20 md:px-6">
+  <% if (placed) { %>
+    <section class="pb-4 pt-12 text-center md:pt-16">
+      <span class="mx-auto grid h-16 w-16 place-items-center rounded-full bg-eva text-white shadow-lift"><%- include('../partials/icon', { name: 'check', cls: 'h-8 w-8', stroke: 2 }) %></span>
+      <h1 class="display mt-6 text-[38px] text-eva md:text-[50px]"><%= t('orders.placed_title') %></h1>
+      <p class="mx-auto mt-2 max-w-md text-[16px] text-ink-soft"><%= t('orders.placed_body', { email: order.customer_email }) %></p>
+    </section>
+  <% } else { %>
+    <header class="pb-6 pt-10 md:pt-14">
+      <a href="/account/orders" class="inline-flex items-center gap-1 text-[14px] text-ink-soft hover:text-eva-deep"><%- include('../partials/icon', { name: 'chevron-left', cls: 'h-4 w-4', flipRtl: true }) %><%= t('nav.orders') %></a>
+      <h1 class="display mt-2 text-[34px] text-eva md:text-[44px]"><%= t('orders.order') %> <span class="num not-italic" dir="ltr"><%= order.order_no %></span></h1>
+    </header>
+  <% } %>
+
+  <div class="mt-6 space-y-5">
+    <section class="rounded-card bg-white p-5 shadow-soft md:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-[14px] text-ink-soft"><span class="num font-medium text-ink" dir="ltr"><%= order.order_no %></span> · <%= formatDate(order.created_at) %></p>
+        <%- include('../partials/status-pill', { status: order.status }) %>
+      </div>
+      <div class="mt-6"><%- include('../partials/timeline', { order }) %></div>
+      <p class="mt-5 rounded-xl bg-eva-mist px-4 py-3 text-[14px] text-ink/85"><%= t('status_desc.' + order.status) %></p>
+    </section>
+
+    <% if (order.status === 'delivered') { %>
+      <section class="rounded-card bg-eva-blush p-5 md:p-6">
+        <% if (order.rating_stars) { %>
+          <h2 class="text-[16px] font-medium"><%= t('orders.your_rating') %></h2>
+          <div class="mt-2"><%- include('../partials/stars', { value: order.rating_stars, size: 'h-5 w-5' }) %></div>
+          <% if (order.rating_comment) { %><p class="display mt-2 text-[17px]">“<%= order.rating_comment %>”</p><% } %>
+        <% } else if (order.rating_token) { %>
+          <h2 class="display text-[24px] text-eva-deep"><%= t('email.rate.heading') %></h2>
+          <p class="mt-1 text-[15px]"><%= t('email.rate.body') %></p>
+          <a href="/rate/<%= order.rating_token %>" class="press mt-4 inline-flex h-12 items-center rounded-[10px] bg-ink px-7 text-white hover:bg-eva-deep active:bg-ink"><span class="btn-label"><%= t('orders.rate_cta') %></span></a>
+        <% } %>
+      </section>
+    <% } %>
+
+    <section class="rounded-card bg-white p-5 shadow-soft md:p-6" aria-labelledby="o-items">
+      <h2 id="o-items" class="text-[16px] font-medium"><%= t('checkout.items', { n: order.items.reduce((s, i) => s + i.qty, 0) }) %></h2>
+      <ul class="mt-2 divide-y divide-line">
+        <% order.items.forEach(function (item) { %>
+          <li class="flex items-center gap-3 py-3">
+            <% if (item.image) { %><img src="<%= item.image %>" alt="" class="h-[80px] w-[60px] shrink-0 rounded-lg object-cover"><% } else { %><span class="h-[80px] w-[60px] shrink-0 rounded-lg" style="background: <%= item.swatch %>"></span><% } %>
+            <div class="min-w-0 flex-1">
+              <p class="text-[15px] font-medium"><%= L(item, 'name') %></p>
+              <p class="num text-[13px] text-ink-soft"><%= t('email.qty_times', { qty: item.qty, price: money(item.final_unit_price) }) %><% if (item.discount_percent) { %> · <span class="text-eva-deep" dir="ltr">-<%= item.discount_percent %>%</span><% } %></p>
+            </div>
+            <p class="num text-[15px]"><%= money(item.line_total) %></p>
+          </li>
+        <% }) %>
+      </ul>
+      <div class="border-t border-line pt-1"><%- include('../partials/totals', { totals: order }) %></div>
+    </section>
+
+    <section class="grid gap-5 sm:grid-cols-2">
+      <div class="rounded-card bg-white p-5 shadow-soft">
+        <h2 class="flex items-center gap-2 text-[15px] font-medium"><%- include('../partials/icon', { name: 'pin', cls: 'h-5 w-5 text-eva-deep' }) %><%= t('checkout.deliver_to') %></h2>
+        <p class="mt-2 text-[15px] leading-relaxed"><%= order.customer_name %><br><%= address(order) %></p>
+        <p class="mt-1 text-[14px] text-ink-soft"><span dir="ltr"><%= order.phone_primary %></span><% if (order.phone_secondary) { %> · <span dir="ltr"><%= order.phone_secondary %></span><% } %></p>
+      </div>
+      <div class="rounded-card bg-white p-5 shadow-soft">
+        <h2 class="flex items-center gap-2 text-[15px] font-medium"><%- include('../partials/icon', { name: 'truck', cls: 'h-5 w-5 text-eva-deep' }) %><%= t('checkout.payment') %></h2>
+        <p class="mt-2 text-[15px]"><%= t('checkout.cod') %></p>
+        <p class="mt-1 text-[14px] text-ink-soft"><%= t('checkout.cod_desc', { total: money(order.total) }) %></p>
+      </div>
+    </section>
+
+    <% if (placed) { %>
+      <div class="flex flex-wrap justify-center gap-3 pt-4">
+        <a href="/shop" class="press inline-flex h-12 items-center rounded-[10px] bg-ink px-7 text-white hover:bg-eva-deep active:bg-ink"><span class="btn-label"><%= t('cart.continue') %></span></a>
+        <a href="/account/orders" class="press inline-flex h-12 items-center rounded-[10px] border border-ink px-7 hover:bg-ink hover:text-white active:bg-eva-deep"><span class="btn-label"><%= t('nav.orders') %></span></a>
+      </div>
+    <% } %>
+  </div>
+</div>

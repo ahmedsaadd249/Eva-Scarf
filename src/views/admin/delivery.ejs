@@ -1,0 +1,84 @@
+<%
+  const all = groups.reduce(function (n, g) { return n + g.zones.length; }, 0);
+  const live = groups.reduce(function (n, g) { return n + g.zones.filter(function (z) { return z.fee != null; }).length; }, 0);
+  const input = 'h-11 w-full rounded-lg border bg-white px-3 text-[15px] outline-none transition-colors hover:border-ink/25 focus:border-eva-deep focus:ring-2 focus:ring-eva/10';
+  const addErr = function (k) { return addErrors[k] ? '<p class="mt-1 text-[12px] text-[#B3203A]">' + t(addErrors[k]) + '</p>' : ''; };
+%>
+<h1 class="display text-[34px] text-eva md:text-[42px]"><%= t('admin.delivery') %></h1>
+<p class="mt-1 max-w-2xl text-[14px] text-ink-soft"><%= t('admin.delivery_intro') %></p>
+
+<div class="mt-6 grid gap-5 xl:grid-cols-[1.6fr_1fr] xl:items-start">
+  <form id="zone-fees" action="/admin/delivery" method="post" class="rounded-card bg-white shadow-soft" novalidate data-once>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-4">
+      <h2 class="text-[16px] font-medium"><%= t('admin.zones_title') %></h2>
+      <p class="text-[13px] text-ink-soft"><%= t('admin.zones_count', { live, all }) %></p>
+    </div>
+
+    <% if (!groups.length) { %>
+      <p class="px-5 py-12 text-center text-ink-soft"><%= t('admin.no_zones') %></p>
+    <% } %>
+
+    <% groups.forEach(function (g) { %>
+      <h3 class="sticky top-16 z-[1] border-b border-line bg-sand/90 px-5 py-2 text-[13px] font-medium text-ink-soft backdrop-blur"><%= g.label %></h3>
+      <ul class="divide-y divide-line">
+        <% g.zones.forEach(function (z) { const bad = feeErrors[z.id]; const on = z.fee != null; %>
+          <li class="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3">
+            <div class="min-w-0 flex-1">
+              <p class="text-[15px] font-medium"><%= z.name_ar %></p>
+              <% if (z.name_en) { %><p class="text-[12px] text-ink-faint" dir="ltr" style="text-align: start"><%= z.name_en %></p><% } %>
+            </div>
+            <span class="rounded-full px-2.5 py-0.5 text-[12px] <%= on ? 'bg-ok-soft text-ok' : 'bg-sand text-ink-soft' %>"><%= on ? t('admin.zone_live') : t('admin.zone_hidden') %></span>
+            <label class="relative w-36">
+              <span class="sr-only"><%= t('admin.zone_fee_for', { name: z.name_ar }) %></span>
+              <input name="fee[z<%= z.id %>]" value="<%= feeInputs[z.id] ?? '' %>" inputmode="decimal" placeholder="<%= t('admin.fee_placeholder') %>"
+                class="num <%= input %> pe-12 <%= bad ? 'border-[#B3203A]' : 'border-line' %>" <%- bad ? 'aria-invalid="true"' : '' %>>
+              <span class="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[13px] text-ink-faint"><%= lang === 'ar' ? 'ج.م' : 'EGP' %></span>
+            </label>
+            <button type="submit" form="zone-del-<%= z.id %>" class="press grid h-11 w-11 place-items-center rounded-lg border border-line text-ink-soft hover:border-[#B3203A] hover:text-[#B3203A] active:bg-[#FBE7EA]" aria-label="<%= t('admin.delete_named', { name: z.name_ar }) %>">
+              <%- include('../partials/icon', { name: 'trash', cls: 'h-[18px] w-[18px]' }) %>
+            </button>
+            <% if (bad) { %><p class="w-full text-[12px] text-[#B3203A]"><%= t('admin.error_fee') %></p><% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% }) %>
+
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4">
+      <p class="text-[13px] text-ink-soft"><%= t('admin.fee_help') %></p>
+      <button class="press h-11 rounded-[10px] bg-ink px-6 text-white hover:bg-eva-deep active:bg-ink disabled:opacity-60"><%= t('admin.save_fees') %></button>
+    </div>
+  </form>
+
+  <form action="/admin/delivery/add" method="post" class="space-y-4 rounded-card bg-white p-5 shadow-soft xl:sticky xl:top-24" novalidate data-once>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <h2 class="text-[16px] font-medium"><%= t('admin.zone_add_title') %></h2>
+    <div>
+      <label for="z-city" class="mb-1 block text-[13px] font-medium"><%= t('profile.city') %></label>
+      <input id="z-city" name="city_ar" list="z-cities" value="<%= addValues.city_ar || '' %>" class="<%= input %> <%= addErrors.city_ar ? 'border-[#B3203A]' : 'border-line' %>" required>
+      <datalist id="z-cities"><% cities.forEach(function (c) { %><option value="<%= c %>"></option><% }) %></datalist>
+      <%- addErr('city_ar') %>
+    </div>
+    <div>
+      <label for="z-name" class="mb-1 block text-[13px] font-medium"><%= t('admin.zone_name_ar') %></label>
+      <input id="z-name" name="name_ar" dir="rtl" value="<%= addValues.name_ar || '' %>" class="<%= input %> <%= addErrors.name_ar ? 'border-[#B3203A]' : 'border-line' %>" required>
+      <%- addErr('name_ar') %>
+    </div>
+    <div>
+      <label for="z-name-en" class="mb-1 flex justify-between gap-2 text-[13px] font-medium"><span><%= t('admin.zone_name_en') %></span><span class="font-normal text-ink-faint"><%= t('profile.optional') %></span></label>
+      <input id="z-name-en" name="name_en" dir="ltr" value="<%= addValues.name_en || '' %>" class="<%= input %> border-line">
+    </div>
+    <div>
+      <label for="z-fee" class="mb-1 block text-[13px] font-medium"><%= t('admin.delivery_fee') %></label>
+      <input id="z-fee" name="fee" inputmode="decimal" value="<%= addValues.fee || '' %>" placeholder="<%= t('admin.fee_placeholder') %>" class="num <%= input %> <%= addErrors.fee ? 'border-[#B3203A]' : 'border-line' %>">
+      <%- addErr('fee') %>
+    </div>
+    <button class="press flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-ink text-white hover:bg-eva-deep active:bg-ink disabled:opacity-60"><%- include('../partials/icon', { name: 'plus', cls: 'h-4 w-4' }) %><%= t('admin.zone_add') %></button>
+  </form>
+</div>
+
+<% groups.forEach(function (g) { g.zones.forEach(function (z) { %>
+  <form id="zone-del-<%= z.id %>" action="/admin/delivery/<%= z.id %>/delete" method="post" class="hidden" data-confirm="<%= t('admin.confirm_zone_delete', { name: z.name_ar }) %>">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  </form>
+<% }) }) %>

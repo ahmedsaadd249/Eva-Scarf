@@ -1,0 +1,59 @@
+<%
+  const total = counts.processing + counts.shipped + counts.delivered;
+  const tabs = [{ v: '', label: t('shop.all'), n: total }].concat(['processing', 'shipped', 'delivered'].map(function (s) { return { v: s, label: t('status.' + s), n: counts[s] }; }));
+  const link = function (s) { const p = new URLSearchParams(); if (s) p.set('status', s); if (search) p.set('q', search); const q = p.toString(); return '/admin/orders' + (q ? '?' + q : ''); };
+%>
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <h1 class="display text-[34px] text-eva md:text-[42px]"><%= t('admin.orders') %></h1>
+  <form action="/admin/orders" method="get" role="search" class="flex w-full gap-2 sm:w-auto">
+    <% if (status) { %><input type="hidden" name="status" value="<%= status %>"><% } %>
+    <label for="order-search" class="sr-only"><%= t('admin.search_orders') %></label>
+    <input id="order-search" name="q" type="search" value="<%= search %>" placeholder="<%= t('admin.search_orders') %>" class="h-11 min-w-0 flex-1 rounded-full border border-line bg-white px-4 text-[15px] outline-none hover:border-ink/25 focus:border-eva-deep sm:w-72">
+    <button class="press grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink text-white hover:bg-eva-deep active:bg-ink" aria-label="<%= t('nav.search') %>"><%- include('../partials/icon', { name: 'search', cls: 'h-5 w-5' }) %></button>
+  </form>
+</div>
+
+<nav class="no-scrollbar mt-5 flex gap-2 overflow-x-auto" aria-label="<%= t('admin.filter_status') %>">
+  <% tabs.forEach(function (tab) { const on = status === tab.v; %>
+    <a href="<%= link(tab.v) %>" class="press inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[14px] <%= on ? 'border-ink bg-ink text-white' : 'border-line bg-white hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush' %>" <%- on ? 'aria-current="page"' : '' %>>
+      <%= tab.label %><span class="num rounded-full px-1.5 text-[12px] <%= on ? 'bg-white/20' : 'bg-sand' %>"><%= tab.n %></span>
+    </a>
+  <% }) %>
+</nav>
+
+<% if (!orders.length) { %>
+  <p class="mt-10 rounded-card bg-white px-5 py-14 text-center text-ink-soft shadow-soft"><%= search ? t('admin.no_orders_search') : t('admin.no_orders') %></p>
+<% } else { %>
+  <div class="mt-5 overflow-hidden rounded-card bg-white shadow-soft">
+    <div class="hidden grid-cols-[110px_1.3fr_1.2fr_70px_110px_120px] gap-4 border-b border-line bg-sand/50 px-5 py-3 text-[13px] text-ink-soft lg:grid">
+      <span><%= t('admin.col_order') %></span><span><%= t('admin.col_customer') %></span><span><%= t('admin.col_location') %></span><span><%= t('admin.col_items') %></span><span><%= t('cart.total') %></span><span><%= t('admin.col_status') %></span>
+    </div>
+    <ul class="divide-y divide-line">
+      <% orders.forEach(function (o) { %>
+        <li>
+          <a href="/admin/orders/<%= o.id %>" class="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-3.5 hover:bg-eva-mist active:bg-eva-blush/50 lg:grid-cols-[110px_1.3fr_1.2fr_70px_110px_120px] lg:gap-4 lg:px-5">
+            <div class="row-span-2 lg:row-span-1">
+              <% if (o.image) { %><img src="<%= o.image %>" alt="" class="h-14 w-11 rounded object-cover lg:hidden"><% } else { %><span class="block h-14 w-11 rounded lg:hidden" style="background: <%= o.swatch %>"></span><% } %>
+              <p class="num hidden font-medium lg:block" dir="ltr"><%= o.order_no %></p>
+              <p class="hidden text-[12px] text-ink-faint lg:block"><%= formatDate(o.created_at, false) %></p>
+            </div>
+            <div class="min-w-0">
+              <p class="truncate text-[15px] font-medium"><span class="num lg:hidden" dir="ltr"><%= o.order_no %> · </span><%= o.customer_name %></p>
+              <p class="truncate text-[13px] text-ink-soft" dir="ltr" style="text-align: start"><%= o.phone_primary %></p>
+            </div>
+            <div class="col-start-2 row-start-2 min-w-0 lg:col-start-auto lg:row-start-auto">
+              <p class="truncate text-[13px] text-ink-soft lg:text-[14px] lg:text-ink"><%= place(o).village %> · <%= place(o).city %></p>
+            </div>
+            <p class="num hidden text-[14px] lg:block"><%= o.item_count %></p>
+            <p class="num hidden text-[14px] lg:block"><%= money(o.total) %></p>
+            <div class="col-start-3 row-span-2 row-start-1 flex flex-col items-end gap-1 lg:col-start-auto lg:row-span-1 lg:row-start-auto lg:items-start">
+              <%- include('../partials/status-pill', { status: o.status }) %>
+              <% if (o.rating_stars) { %><span class="inline-flex items-center gap-0.5 text-[12px] text-eva-deep"><%- include('../partials/icon', { name: 'star-solid', cls: 'h-3.5 w-3.5' }) %><span class="num"><%= o.rating_stars %></span></span><% } %>
+              <span class="num text-[13px] lg:hidden"><%= money(o.total) %></span>
+            </div>
+          </a>
+        </li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>

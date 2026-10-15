@@ -1,0 +1,32 @@
+<div class="mx-auto max-w-3xl px-4 pb-20 md:px-6">
+  <header class="pb-6 pt-10 md:pt-14">
+    <h1 class="display text-[38px] text-eva md:text-[50px]"><%= t('orders.title') %></h1>
+  </header>
+  <%- include('../partials/account-tabs') %>
+
+  <% if (!orders.length) { %>
+    <div class="py-16 text-center">
+      <p class="text-[17px]"><%= t('orders.empty') %></p>
+      <a href="/shop" class="press mt-6 inline-flex h-12 items-center rounded-[10px] bg-ink px-7 text-white hover:bg-eva-deep active:bg-ink"><span class="btn-label"><%= t('orders.empty_cta') %></span></a>
+    </div>
+  <% } else { %>
+    <ul class="mt-6 space-y-3">
+      <% orders.forEach(function (o) { %>
+        <li>
+          <a href="/account/orders/<%= o.order_no %>" class="press flex items-center gap-4 rounded-card bg-white p-4 shadow-soft hover:shadow-lift active:scale-[.99]">
+            <% if (o.image) { %><img src="<%= o.image %>" alt="" class="h-[76px] w-[57px] shrink-0 rounded-lg object-cover"><% } else { %><span class="h-[76px] w-[57px] shrink-0 rounded-lg" style="background: <%= o.swatch %>"></span><% } %>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p class="num font-medium" dir="ltr"><%= o.order_no %></p>
+                <%- include('../partials/status-pill', { status: o.status }) %>
+              </div>
+              <p class="mt-1 text-[13px] text-ink-soft"><%= formatDate(o.created_at) %> · <%= t('cart.items', { n: o.item_count }) %></p>
+            </div>
+            <p class="num shrink-0 text-[15px] font-medium"><%= money(o.total) %></p>
+            <%- include('../partials/icon', { name: 'chevron-right', cls: 'h-4 w-4 shrink-0 text-ink-faint', flipRtl: true }) %>
+          </a>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</div>

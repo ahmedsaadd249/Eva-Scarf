@@ -1,0 +1,14 @@
+<% if (typeof flash !== 'undefined' && flash) {
+  const tone = { success: 'bg-ink text-white', error: 'bg-[#8E1238] text-white', info: 'bg-white text-ink border border-line' }[flash.type] || 'bg-ink text-white';
+  const icon = { success: 'check', error: 'alert', info: 'info' }[flash.type] || 'info';
+%>
+<div class="pointer-events-none fixed inset-x-0 top-[76px] z-[70] flex justify-center px-4 md:top-[88px]">
+  <div data-toast role="<%= flash.type === 'error' ? 'alert' : 'status' %>" class="toast pointer-events-auto flex max-w-md items-start gap-3 rounded-2xl px-4 py-3 shadow-float <%= tone %>">
+    <%- include('icon', { name: icon, cls: 'mt-0.5 h-5 w-5 shrink-0' }) %>
+    <p class="text-[15px] leading-relaxed"><%= t(flash.key, flash.vars) %></p>
+    <button type="button" data-toast-close class="press -me-1 -mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full opacity-70 hover:opacity-100 active:opacity-60" aria-label="<%= t('nav.close') %>">
+      <%- include('icon', { name: 'close', cls: 'h-4 w-4' }) %>
+    </button>
+  </div>
+</div>
+<% } %>

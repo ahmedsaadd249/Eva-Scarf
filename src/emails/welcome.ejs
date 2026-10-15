@@ -1,0 +1,11 @@
+<h1 style="margin:0 0 14px;font-family:<%- displayFont %>;font-weight:normal;<%- displayStyle %>font-size:28px;line-height:1.3;color:#B4186F;"><%= t('email.welcome.heading', { name: user.full_name }) %></h1>
+<p style="margin:0 0 14px;"><%= t('email.welcome.intro') %></p>
+<p style="margin:0 0 24px;"><%= t('email.welcome.next') %></p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td style="border-radius:999px;background:#2B1A24;">
+      <a href="<%= baseUrl %>/account/profile" style="display:inline-block;padding:14px 28px;font-family:<%- bodyFont %>;font-size:15px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:999px;"><%= t('email.welcome.cta') %></a>
+    </td>
+  </tr>
+</table>
+<p style="margin:22px 0 0;font-size:14px;"><a href="<%= baseUrl %>/shop" style="color:#B4186F;"><%= t('email.welcome.browse') %></a></p>
