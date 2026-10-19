@@ -296,13 +296,16 @@
       "shipped": {
         "subject": "Your order {no} is on its way",
         "heading": "Your order is on its way!",
-        "body": "{name}, we shipped your order and it will reach you soon. Have the cash ready for the courier."
+        "body": "{name}, we shipped your order and it will reach you soon. Please have {amount} in cash ready for the courier."
       },
       "delivered": {
         "subject": "Your order {no} was delivered",
         "heading": "Your order arrived",
         "body": "{name}, your order was delivered. We hope you love your tarha!"
-      }
+      },
+      "amount_due": "Amount to pay on delivery",
+      "amount_includes_delivery": "Including delivery ({fee})",
+      "amount_free_delivery": "Delivery is free"
     },
     "rate": {
       "heading": "How did we do?",

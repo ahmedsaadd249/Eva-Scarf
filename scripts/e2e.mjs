@@ -64,6 +64,8 @@ const db = await import('../src/db.js');
 const { seedAdmin, seedCatalog } = await import('../src/seed.js');
 const { app } = await import('../src/app.js');
 const { verifyPassword } = await import('../src/auth.js');
+const { translate } = await import('../src/i18n.js');
+const { formatMoney } = await import('../src/pricing.js');
 await seedAdmin();
 await seedCatalog();
 const server = app.listen(Number(PORT));
@@ -365,8 +367,13 @@ try {
 
   const t2 = Date.now();
   await submit(admin, `form[action="/admin/orders/${order.id}/status"]`, 'button[value="shipped"]');
-  await waitForEmail('status-shipped', email, t2);
-  ok('Shipped → status email sent');
+  const shipped = await waitForEmail('status-shipped', email, t2);
+  const due = formatMoney(order.total, order.lang);
+  assert.ok(shipped.html.includes(translate(order.lang, 'email.status.shipped.body', { name: order.customer_name, amount: due })),
+    'the shipped sentence says how much cash to have ready');
+  assert.ok(shipped.html.includes(translate(order.lang, 'email.status.amount_due')) && shipped.html.includes(`>${due}<`),
+    'the shipped email shows the amount due on delivery');
+  ok(`Shipped → status email sent, with the amount to pay the courier (${due})`);
   const t3 = Date.now();
   await submit(admin, `form[action="/admin/orders/${order.id}/status"]`, 'button[value="delivered"]');
   const delivered = await waitForEmail('status-delivered', email, t3);
