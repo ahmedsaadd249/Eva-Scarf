@@ -15,6 +15,15 @@ const isProd = env.NODE_ENV === 'production';
 const onVercel = Boolean(env.VERCEL);
 const writable = (dir, fallback) => (env[dir] ? path.resolve(ROOT, env[dir]) : onVercel ? path.join(os.tmpdir(), fallback) : path.join(ROOT, fallback));
 
+// On Vercel the disk is read-only and wiped between requests, so the local database and uploads
+// folder can't work: the store needs Supabase. Say exactly what's missing (shows in Vercel's logs).
+if (onVercel) {
+  const missing = ['SESSION_SECRET', 'DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'].filter((k) => !env[k]);
+  if (missing.length) {
+    throw new Error(`Missing environment variables on Vercel: ${missing.join(', ')}. `
+      + 'Add them in Vercel → Project → Settings → Environment Variables, then redeploy.');
+  }
+}
 if (isProd && !env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET must be set in production.');
 }

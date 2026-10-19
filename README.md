@@ -27,22 +27,31 @@ You need four free accounts. Do them in this order; each step lists exactly what
 
 ### 2. Supabase: the database and photo storage
 1. Sign up at <https://supabase.com> and click **New project**.
-   - Name: `eva-scarf` · Region: **Central EU (Frankfurt)** (closest to Egypt) · choose a strong **database password** and keep it.
+   - Name: `eva-scarf` · Region: **Europe** if you can (closest to Egypt; the default is Americas) · a **database password**
+     of letters and numbers only (symbols like `#` break the address) · untick **Automatically expose new tables**,
+     tick **Enable automatic RLS**.
+   - This store's project is in US West (Oregon), so `vercel.json` runs the site in Portland (`pdx1`), next to the
+     database. If you ever move the database to Europe, change `regions` there to `["fra1"]`.
 2. When the project is ready, collect three values:
    - **DATABASE_URL**: click **Connect** (top bar) → **Transaction pooler** → copy the URI
-     (it looks like `postgresql://postgres.xxxx:[YOUR-PASSWORD]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`)
+     (it looks like `postgresql://postgres.xxxx:[YOUR-PASSWORD]@aws-1-us-west-2.pooler.supabase.com:6543/postgres`)
      and put your database password in place of `[YOUR-PASSWORD]`.
    - **SUPABASE_URL**: Project Settings → **API** → Project URL (`https://xxxx.supabase.co`).
-   - **SUPABASE_SERVICE_ROLE_KEY**: Project Settings → **API** → `service_role` secret. Keep it private.
+   - **SUPABASE_SERVICE_ROLE_KEY**: Project Settings → **API Keys** → **Secret keys** (starts with `sb_secret_`;
+     the older `service_role` key works too). Not the publishable key. Keep it private.
 3. Put the three values in your local `.env`, then create the tables, the photo bucket and the owner account:
    ```bash
    npm run db:setup
    ```
-4. Move the store's current data (products, photos, neighborhoods and fees, accounts) from this computer into Supabase:
+4. Move the store's current data (products, photos, neighborhoods and fees, accounts, orders) from this computer into
+   Supabase. Stop the local site first, then:
    ```bash
-   npm run migrate:sqlite -- --replace
+   npm run db:copy-local
    ```
-   (Only needed once. `--replace` empties the Supabase tables first.)
+   (Only needed once; done for this store on 2026-10-19. Add `-- --replace` to overwrite data already in Supabase.
+   The old `npm run migrate:sqlite` only reads the pre-Postgres file `data/eva.db`.)
+   From then on this computer also uses Supabase, so the local site shows the live data. The tests always use a
+   throwaway database and never touch it.
 
 **Reading the data:** in Supabase, open **Table Editor**. `orders`, `order_items`, `users`, `products`,
 `zones` (neighborhoods and fees) and the rest are all there; you can view, filter, export to CSV and

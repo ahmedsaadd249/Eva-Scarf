@@ -7,7 +7,11 @@ import { config } from './config.js';
 const { url, serviceKey, bucket } = config.supabase;
 export const usesSupabaseStorage = Boolean(url && serviceKey);
 const publicPrefix = `${url}/storage/v1/object/public/${bucket}/`;
-const authHeaders = { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey };
+// Supabase's newer secret keys ("sb_secret_…") go in the apikey header only; the older service_role
+// key (a JWT) also goes in Authorization.
+const authHeaders = String(serviceKey).startsWith('sb_')
+  ? { apikey: serviceKey }
+  : { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey };
 
 /** Origin to allow in the image Content-Security-Policy, or null. */
 export const storageOrigin = usesSupabaseStorage ? new URL(url).origin : null;
