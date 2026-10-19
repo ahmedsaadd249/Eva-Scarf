@@ -40,12 +40,12 @@
   <p class="mt-6 rounded-card bg-white px-5 py-14 text-center text-ink-soft shadow-soft"><%= t('admin.no_products') %></p>
 <% } else { %>
   <div class="mt-5 overflow-hidden rounded-card bg-white shadow-soft">
-    <div class="hidden grid-cols-[28px_56px_1.4fr_110px_80px_80px_110px_64px_150px] items-center gap-3 border-b border-line bg-sand/50 px-4 py-3 text-[12px] text-ink-soft xl:grid">
+    <div class="hidden grid-cols-[28px_56px_1.4fr_110px_80px_80px_110px_64px_186px] items-center gap-3 border-b border-line bg-sand/50 px-4 py-3 text-[12px] text-ink-soft xl:grid">
       <span></span><span></span><span><%= t('admin.col_product') %></span><span><%= t('admin.price') %></span><span><%= t('admin.discount_percent') %></span><span><%= t('admin.stock') %></span><span><%= t('admin.final_price') %></span><span><%= t('admin.visible') %></span><span></span>
     </div>
     <ul class="divide-y divide-line">
       <% products.forEach(function (p) { const fid = 'q-' + p.id; %>
-        <li class="grid grid-cols-[28px_56px_1fr] items-center gap-x-3 gap-y-3 px-4 py-4 xl:grid-cols-[28px_56px_1.4fr_110px_80px_80px_110px_64px_150px] <%= p.is_active ? '' : 'bg-sand/40' %>">
+        <li class="grid grid-cols-[28px_56px_1fr] items-center gap-x-3 gap-y-3 px-4 py-4 xl:grid-cols-[28px_56px_1.4fr_110px_80px_80px_110px_64px_186px] <%= p.is_active ? '' : 'bg-sand/40' %>">
           <div>
             <% if (view !== 'archived') { %>
               <label class="grid h-7 w-7 cursor-pointer place-items-center"><span class="sr-only"><%= t('admin.select_product', { name: alabel(p) }) %></span><input type="checkbox" name="ids" value="<%= p.id %>" form="bulk" class="h-4 w-4 accent-[#B4186F]" data-bulk-check></label>
@@ -62,11 +62,14 @@
 
           <% if (view === 'archived') { %>
             <div class="col-span-3 flex items-center justify-between gap-3 xl:col-span-6 xl:col-start-4">
-              <p class="text-[13px] text-ink-soft"><%= t('admin.archived_note', { n: p.times_ordered }) %></p>
-              <form action="/admin/products/<%= p.id %>/restore" method="post">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <button class="press inline-flex h-10 items-center gap-1.5 rounded-lg border border-line px-3 text-[14px] hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush"><%- include('../partials/icon', { name: 'undo', cls: 'h-4 w-4' }) %><%= t('admin.restore') %></button>
-              </form>
+              <p class="text-[13px] text-ink-soft"><%= t('admin.archived_note') %></p>
+              <div class="flex items-center gap-1.5">
+                <form action="/admin/products/<%= p.id %>/restore" method="post">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="press inline-flex h-10 items-center gap-1.5 rounded-lg border border-line px-3 text-[14px] hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush"><%- include('../partials/icon', { name: 'undo', cls: 'h-4 w-4' }) %><%= t('admin.restore') %></button>
+                </form>
+                <%- include('../partials/product-delete', { p: p, returnTo: returnTo }) %>
+              </div>
             </div>
           <% } else { %>
             <form id="<%= fid %>" action="/admin/products/<%= p.id %>/quick" method="post" class="hidden">
@@ -90,11 +93,13 @@
             </div>
             <div class="col-span-3 flex items-center justify-end gap-1.5 xl:col-span-1">
               <button form="<%= fid %>" class="press h-10 rounded-lg bg-ink px-4 text-[14px] text-white hover:bg-eva-deep active:bg-ink"><%= t('admin.save') %></button>
-              <a href="/admin/products/<%= p.id %>/edit" class="press grid h-10 w-10 place-items-center rounded-lg border border-line hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush" aria-label="<%= t('admin.edit_named', { name: alabel(p) }) %>"><%- include('../partials/icon', { name: 'edit', cls: 'h-[18px] w-[18px]' }) %></a>
-              <form action="/admin/products/<%= p.id %>/delete" method="post" data-confirm="<%= p.times_ordered ? t('admin.confirm_archive', { name: alabel(p) }) : t('admin.confirm_delete', { name: alabel(p) }) %>">
+              <a href="/admin/products/<%= p.id %>/edit" class="press grid h-10 w-9 place-items-center rounded-lg border border-line hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush" aria-label="<%= t('admin.edit_named', { name: alabel(p) }) %>"><%- include('../partials/icon', { name: 'edit', cls: 'h-[18px] w-[18px]' }) %></a>
+              <form action="/admin/products/<%= p.id %>/archive" method="post" data-confirm="<%= t('admin.confirm_archive', { name: alabel(p) }) %>">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <button class="press grid h-10 w-10 place-items-center rounded-lg border border-line text-ink-soft hover:border-[#B3203A] hover:text-[#B3203A] active:bg-[#FBE7EA]" aria-label="<%= t('admin.delete_named', { name: alabel(p) }) %>"><%- include('../partials/icon', { name: p.times_ordered ? 'archive' : 'trash', cls: 'h-[18px] w-[18px]' }) %></button>
+                <input type="hidden" name="return_to" value="<%= returnTo %>">
+                <button class="press grid h-10 w-9 place-items-center rounded-lg border border-line text-ink-soft hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush" aria-label="<%= t('admin.archive_named', { name: alabel(p) }) %>" title="<%= t('admin.archive') %>"><%- include('../partials/icon', { name: 'archive', cls: 'h-[18px] w-[18px]' }) %></button>
               </form>
+              <%- include('../partials/product-delete', { p: p, returnTo: returnTo }) %>
             </div>
           <% } %>
         </li>

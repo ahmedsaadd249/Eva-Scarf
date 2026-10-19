@@ -110,11 +110,24 @@
     <form id="img-main-<%= img.id %>" action="/admin/products/<%= product.id %>/images/<%= img.id %>/main" method="post" class="hidden"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
     <form id="img-del-<%= img.id %>" action="/admin/products/<%= product.id %>/images/<%= img.id %>/delete" method="post" class="hidden" data-confirm="<%= t('admin.confirm_image') %>"><input type="hidden" name="_csrf" value="<%= csrfToken %>"></form>
   <% }) %>
-  <% if (!product.is_archived) { %>
-    <form action="/admin/products/<%= product.id %>/delete" method="post" class="mt-10 border-t border-line pt-6" data-confirm="<%= t('admin.confirm_delete', { name: title }) %>">
+  <%# Archive (hide but keep) or delete for good. %>
+  <div class="mt-10 grid gap-5 border-t border-line pt-6 sm:grid-cols-2">
+    <% if (product.is_archived) { %>
+      <form action="/admin/products/<%= product.id %>/restore" method="post">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="press inline-flex h-11 items-center gap-2 rounded-[10px] border border-line px-5 text-[14px] hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush"><%- include('../partials/icon', { name: 'undo', cls: 'h-4 w-4' }) %><%= t('admin.restore') %></button>
+      </form>
+    <% } else { %>
+      <form action="/admin/products/<%= product.id %>/archive" method="post" data-confirm="<%= t('admin.confirm_archive', { name: title }) %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="press inline-flex h-11 items-center gap-2 rounded-[10px] border border-line px-5 text-[14px] hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush"><%- include('../partials/icon', { name: 'archive', cls: 'h-4 w-4' }) %><%= t('admin.archive_product') %></button>
+        <p class="mt-2 text-[13px] text-ink-soft"><%= t('admin.archive_hint') %></p>
+      </form>
+    <% } %>
+    <form action="/admin/products/<%= product.id %>/delete" method="post" data-confirm="<%= t(product.times_ordered ? 'admin.confirm_delete_ordered' : 'admin.confirm_delete', { name: title }) %>">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button class="press inline-flex h-11 items-center gap-2 rounded-[10px] border border-[#B3203A]/40 px-5 text-[14px] text-[#B3203A] hover:bg-[#FBE7EA] active:bg-[#F6D3D9]"><%- include('../partials/icon', { name: 'trash', cls: 'h-4 w-4' }) %><%= t('admin.delete_product') %></button>
       <p class="mt-2 text-[13px] text-ink-soft"><%= t('admin.delete_hint') %></p>
     </form>
-  <% } %>
+  </div>
 <% } %>

@@ -492,6 +492,38 @@ try {
   assert.equal((await db.get('SELECT 1 FROM products WHERE id = ?', [created.id])), null);
   ok('test product deleted');
 
+  section('Owner: archive, restore and delete a product that was ordered');
+  // Karkadeh is in order ${orderNo}. Archive hides it but keeps it.
+  await admin.goto(`${BASE}/admin/products`, { waitUntil: 'networkidle0' });
+  await submit(admin, `form[action="/admin/products/${karkadeh.id}/archive"]`);
+  assert.equal((await db.get('SELECT is_archived FROM products WHERE id = ?', [karkadeh.id])).is_archived, 1);
+  assert.equal((await page.goto(`${BASE}/product/karkadeh`, { waitUntil: 'networkidle0' })).status(), 404, 'archived product hidden from the store');
+  await admin.goto(`${BASE}/admin/products?view=archived`, { waitUntil: 'networkidle0' });
+  assert.ok(await admin.$(`form[action="/admin/products/${karkadeh.id}/delete"]`), 'Archived tab offers Delete');
+  await submit(admin, `form[action="/admin/products/${karkadeh.id}/restore"]`);
+  assert.equal((await db.get('SELECT is_archived FROM products WHERE id = ?', [karkadeh.id])).is_archived, 0);
+  ok('archive hides it from the store; the Archived tab can restore it (or delete it)');
+  await shot(admin, 'admin-product-edit-actions');
+
+  // Delete for good: the product goes, the past order keeps its copy.
+  const itemBefore = await db.get('SELECT * FROM order_items WHERE order_id = ? AND product_id = ?', [order.id, karkadeh.id]);
+  await admin.goto(`${BASE}/admin/products`, { waitUntil: 'networkidle0' });
+  await shot(admin, 'admin-products-actions');
+  await submit(admin, `form[action="/admin/products/${karkadeh.id}/delete"]`);
+  assert.equal(await db.get('SELECT 1 FROM products WHERE id = ?', [karkadeh.id]), null, 'product deleted');
+  const itemAfter = await db.get('SELECT * FROM order_items WHERE id = ?', [itemBefore.id]);
+  assert.equal(itemAfter.product_id, null);
+  for (const col of ['name_ar', 'name_en', 'image', 'unit_price', 'final_unit_price', 'qty', 'line_total']) {
+    assert.equal(itemAfter[col], itemBefore[col], `order item ${col} unchanged`);
+  }
+  assert.equal((await db.get('SELECT total FROM orders WHERE id = ?', [order.id])).total, order.total);
+  await admin.goto(`${BASE}/admin/orders/${order.id}`, { waitUntil: 'networkidle0' });
+  assert.ok((await admin.$eval('main', (m) => m.innerText)).includes(itemBefore.name_ar), 'owner order page still lists the item');
+  assert.ok(await admin.$(`main img[src="${itemBefore.image}"]`), 'order still shows the item photo');
+  await page.goto(`${BASE}/account/orders/${orderNo}`, { waitUntil: 'networkidle0' });
+  assert.ok((await page.$eval('main', (m) => m.innerText)).includes(itemBefore.name_ar), "customer's order page still lists the item");
+  ok(`deleting it keeps order ${orderNo} unchanged: name, photo, price and total`);
+
   section('Browser console');
   assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
   ok('no JavaScript errors on any page');

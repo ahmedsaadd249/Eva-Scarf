@@ -160,12 +160,17 @@ function readProductForm(body) {
   return { values, errors };
 }
 
-function productFormPage(res, locals) {
+async function productFormPage(res, locals) {
+  const { product } = locals;
+  if (product && product.times_ordered === undefined) {
+    // Shown in the delete confirmation: past orders keep their copy of the product.
+    product.times_ordered = (await get('SELECT COUNT(*)::int AS n FROM order_items WHERE product_id = ?', [product.id])).n;
+  }
   adminPage(res, 'product-form', { errors: {}, images: [], ...locals });
 }
 
 router.get('/products/new', (req, res) => {
-  productFormPage(res, {
+  return productFormPage(res, {
     title: res.locals.t('admin.product_new'),
     product: null,
     values: { is_active: 1, discount_percent: 0, stock: 0, price_input: '' },
@@ -222,7 +227,7 @@ router.post('/products', uploadImages, verifyCsrf, async (req, res) => {
 router.get('/products/:id/edit', async (req, res, next) => {
   const product = await getProductById(toInt(req.params.id));
   if (!product) return next();
-  productFormPage(res, {
+  return productFormPage(res, {
     title: res.locals.alabel(product),
     product,
     images: await getProductImages(product.id),
@@ -275,21 +280,37 @@ router.post('/products/:id/quick', async (req, res, next) => {
   res.redirect(String(req.body.return_to || '').startsWith('/admin/products') ? req.body.return_to : '/admin/products');
 });
 
-/** Delete a product. Products that appear in orders are archived instead, so order history stays intact. */
+// Back to the product list the owner came from (keeps the All / Visible / Hidden / Archived tab).
+const productListUrl = (req) => {
+  const back = String(req.body.return_to || '');
+  return /^\/admin\/products(\?view=[a-z]+)?$/.test(back) ? back : '/admin/products';
+};
+
+/** Archive: hide the product from the store but keep it; it can be restored from the Archived tab. */
+router.post('/products/:id/archive', async (req, res, next) => {
+  const product = await getProductById(toInt(req.params.id));
+  if (!product) return next();
+  await run('UPDATE products SET is_archived = 1, is_active = 0, is_featured = 0, updated_at = now() WHERE id = ?', [product.id]);
+  req.flash('success', 'admin.product_archived', { name: res.locals.alabel(product) });
+  res.redirect(productListUrl(req));
+});
+
+/**
+ * Delete a product for good. Past orders don't change: each order keeps its own copy of the
+ * product's name, price and photo (order_items), and photos a past order still shows are kept.
+ */
 router.post('/products/:id/delete', async (req, res, next) => {
   const product = await getProductById(toInt(req.params.id));
   if (!product) return next();
   const ordered = await get('SELECT 1 FROM order_items WHERE product_id = ? LIMIT 1', [product.id]);
-  if (ordered) {
-    await run('UPDATE products SET is_archived = 1, is_active = 0, is_featured = 0, updated_at = now() WHERE id = ?', [product.id]);
-    req.flash('success', 'admin.product_archived', { name: res.locals.alabel(product) });
-  } else {
-    const images = await getProductImages(product.id);
-    await run('DELETE FROM products WHERE id = ?', [product.id]);
-    await Promise.all(images.map((img) => deleteImage(img.path)));
-    req.flash('success', 'admin.product_deleted', { name: res.locals.alabel(product) });
+  const images = await getProductImages(product.id);
+  await run('DELETE FROM products WHERE id = ?', [product.id]); // photos rows go with it; order items keep their copy
+  for (const img of images) {
+    const inUse = await get('SELECT 1 FROM product_images WHERE path = ? UNION SELECT 1 FROM order_items WHERE image = ?', [img.path, img.path]);
+    if (!inUse) await deleteImage(img.path);
   }
-  res.redirect('/admin/products');
+  req.flash('success', ordered ? 'admin.product_deleted_ordered' : 'admin.product_deleted', { name: res.locals.alabel(product) });
+  res.redirect(productListUrl(req));
 });
 
 router.post('/products/:id/restore', async (req, res, next) => {

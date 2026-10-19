@@ -1,0 +1,7 @@
+<%# Delete-for-good button for a product row (admin). Needs p (with times_ordered) and returnTo. %>
+<form action="/admin/products/<%= p.id %>/delete" method="post"
+      data-confirm="<%= t(p.times_ordered ? 'admin.confirm_delete_ordered' : 'admin.confirm_delete', { name: alabel(p) }) %>">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <input type="hidden" name="return_to" value="<%= returnTo %>">
+  <button class="press grid h-10 w-9 place-items-center rounded-lg border border-line text-ink-soft hover:border-[#B3203A] hover:text-[#B3203A] active:bg-[#FBE7EA]" aria-label="<%= t('admin.delete_named', { name: alabel(p) }) %>" title="<%= t('admin.delete') %>"><%- include('icon', { name: 'trash', cls: 'h-[18px] w-[18px]' }) %></button>
+</form>

@@ -102,11 +102,14 @@ export async function closeDb() {
 }
 
 // ---------- Settings (cached briefly; they change rarely) ----------
+// On Vercel several copies of the site run at once and only the one that saved a change clears its
+// cache, so keep this short: an owner's edit shows up everywhere within a few seconds.
+export const CACHE_TTL_MS = 5_000;
 const SETTING_DEFAULTS = { store_email: '' };
 let settingsCache = { at: 0, values: null };
 
 export async function getSetting(key) {
-  if (!settingsCache.values || Date.now() - settingsCache.at > 30_000) {
+  if (!settingsCache.values || Date.now() - settingsCache.at > CACHE_TTL_MS) {
     const rows = await all('SELECT key, value FROM settings');
     settingsCache = { at: Date.now(), values: Object.fromEntries(rows.map((r) => [r.key, r.value])) };
   }

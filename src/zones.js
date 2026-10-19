@@ -1,12 +1,13 @@
 // Delivery neighborhoods ("zones"): each has its own delivery fee.
-// The list is small and changes rarely, so it's cached briefly and cleared when the owner edits it.
-import { all } from './db.js';
+// The list is small and changes rarely, so it's cached briefly and cleared when the owner edits it
+// (other running copies of the site pick up the change within CACHE_TTL_MS).
+import { all, CACHE_TTL_MS } from './db.js';
 import { localized, translate } from './i18n.js';
 
 let cache = { at: 0, rows: null };
 
 export async function allZones() {
-  if (!cache.rows || Date.now() - cache.at > 30_000) {
+  if (!cache.rows || Date.now() - cache.at > CACHE_TTL_MS) {
     cache = { at: Date.now(), rows: await all('SELECT * FROM zones ORDER BY sort_order, id') };
   }
   return cache.rows;
