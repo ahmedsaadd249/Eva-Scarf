@@ -16,6 +16,7 @@ before(async () => {
   zone = await get("SELECT * FROM zones WHERE name_en = 'Mohandessin'");
   user = await get(`INSERT INTO users (email, password_hash, full_name, phone_primary, phone_secondary, zone_id, street, building_no, apartment_no)
                     VALUES ('t@example.com', 'x', 'Test Customer', '0912345678', '0101234567', ?, 'Street 15', '7', '2') RETURNING *`, [zone.id]);
+  user = await get('UPDATE users SET location_lat = 30.0561, location_lng = 31.2003, location_label = ? WHERE id = ? RETURNING *', ['شارع الأربعين، المهندسين', user.id]);
   // No name on purpose: names are optional.
   ({ id: productId } = await get(`INSERT INTO products (slug, name_ar, name_en, price, discount_percent, stock)
                                   VALUES ('t', '', '', 50000, 10, 2) RETURNING id`));
@@ -56,6 +57,7 @@ test('placing an order snapshots prices, neighborhood fee and address, and decre
   assert.equal(saved.village, 'المهندسين');
   assert.equal(saved.city, 'الجيزة');
   assert.equal(saved.apartment_no, '2');
+  assert.deepEqual([saved.location_lat, saved.location_lng, saved.location_label], [30.0561, 31.2003, 'شارع الأربعين، المهندسين'], 'map location copied');
   assert.equal(saved.items[0].final_unit_price, 45000);
   assert.equal(saved.items[0].name_en, '', 'unnamed tarha stays unnamed');
   assert.equal(saved.items[0].name_ar, '');

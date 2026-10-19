@@ -282,6 +282,12 @@ if (citySelect && zoneSelect) {
   filterZones();
 }
 
+/* ---------- Page features loaded only where they are used ---------- */
+const locationPicker = $('[data-location-picker]');
+if (locationPicker) import('./location-picker.js').then((m) => m.initLocationPicker(locationPicker));
+const authCharacters = $('[data-auth-characters]');
+if (authCharacters) import('./auth-characters.js').then((m) => m.initAuthCharacters(authCharacters));
+
 /* ---------- Confirm destructive actions ---------- */
 $$('form[data-confirm]').forEach((form) => {
   form.addEventListener('submit', (e) => {

@@ -1,0 +1,64 @@
+<%#
+  Map location picker for the delivery address (profile page). Needs JavaScript, so it stays hidden
+  until public/js/location-picker.js starts it; the hidden inputs keep the saved location either way.
+%>
+<%
+  const geoKeys = ['detecting', 'saved', 'saved_hint', 'not_confirmed', 'locating', 'denied', 'unavailable', 'timeout',
+    'searching', 'no_results', 'unknown_place', 'error_service', 'error_bad_query', 'filled', 'zone_unknown', 'add_apartment'];
+  const geoText = JSON.stringify(Object.fromEntries(geoKeys.map(function (k) { return [k, t('geo.' + k)]; }))).replace(/</g, '\\u003c');
+  const hasPoint = values.location_lat != null && values.location_lat !== '' && values.location_lng != null && values.location_lng !== '';
+  const savedLabel = hasPoint ? String(values.location_label || '') : '';
+  const savedName = savedLabel.split(/[،,]/)[0].trim();
+%>
+<div class="sm:col-span-2" data-location-picker hidden
+     data-lat="<%= hasPoint ? values.location_lat : '' %>" data-lng="<%= hasPoint ? values.location_lng : '' %>">
+  <p class="text-[14px] font-medium text-ink"><%= t('geo.title') %> <span class="text-[12px] font-normal text-ink-faint">(<%= t('geo.recommended') %>)</span></p>
+  <p class="mb-2 mt-0.5 text-[13px] text-ink-soft"><%= t('geo.hint') %></p>
+
+  <div class="relative isolate overflow-hidden rounded-card border border-line bg-sand" dir="ltr">
+    <div data-map class="h-[280px] w-full md:h-[340px]" role="application" aria-label="<%= t('geo.title') %>"></div>
+
+    <%# Fixed pin in the centre: the map moves under it. Its tip marks the spot. %>
+    <div data-pin class="map-pin pointer-events-none absolute left-1/2 top-1/2 z-[700]" aria-hidden="true">
+      <svg width="38" height="50" viewBox="0 0 38 50"><path d="M19 49s16-17.6 16-29.5C35 9.4 27.8 2 19 2S3 9.4 3 19.5C3 31.4 19 49 19 49z" fill="#E8339A" stroke="#fff" stroke-width="3"/><circle cx="19" cy="19" r="6.5" fill="#fff"/></svg>
+    </div>
+    <span class="map-pin-shadow pointer-events-none absolute left-1/2 top-1/2 z-[650]" aria-hidden="true"></span>
+
+    <div class="absolute inset-x-3 top-3 z-[800]" dir="<%= dir %>">
+      <div class="flex items-center gap-1 rounded-full bg-white/95 p-1 shadow-lift backdrop-blur">
+        <label for="geo-search" class="sr-only"><%= t('geo.search_placeholder') %></label>
+        <input id="geo-search" type="search" data-geo-search autocomplete="off" enterkeyhint="search"
+               placeholder="<%= t('geo.search_placeholder') %>"
+               class="h-10 min-w-0 flex-1 rounded-full bg-transparent ps-3 text-[15px] text-ink outline-none placeholder:text-ink-faint">
+        <button type="button" data-geo-search-btn class="press grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-white hover:bg-eva-deep active:bg-ink" aria-label="<%= t('geo.search') %>">
+          <%- include('icon', { name: 'search', cls: 'h-[18px] w-[18px]' }) %>
+        </button>
+      </div>
+      <ul data-geo-results hidden class="mt-2 max-h-52 overflow-y-auto rounded-xl bg-white text-[14px] shadow-float"></ul>
+    </div>
+
+    <button type="button" data-geo-locate class="press absolute bottom-7 right-3 z-[800] inline-flex h-10 items-center gap-2 rounded-full bg-white px-3.5 text-[13px] font-medium text-ink shadow-lift hover:text-eva-deep active:bg-eva-blush" dir="<%= dir %>">
+      <%- include('icon', { name: 'pin', cls: 'h-4 w-4 text-eva-deep' }) %><%= t('geo.locate') %>
+    </button>
+  </div>
+
+  <div class="mt-3 rounded-card border border-line bg-eva-mist/60 p-4">
+    <p class="text-[12px] text-ink-soft"><%= t('geo.delivery_location') %></p>
+    <p data-geo-name class="mt-0.5 text-[16px] font-semibold text-ink"><%= savedName || (hasPoint ? t('geo.unknown_place') : t('geo.move_map')) %></p>
+    <p data-geo-address class="text-[13px] leading-relaxed text-ink-soft"><%= savedLabel %></p>
+    <p data-geo-status class="mt-2 hidden items-center gap-1.5 text-[13px]" role="status" aria-live="polite"></p>
+    <%# After "Confirm": what was filled in from the map, and what is still left to do. %>
+    <p data-geo-note class="mt-1 text-[13px] leading-relaxed text-ink-soft" aria-live="polite" hidden></p>
+    <button type="button" data-geo-confirm class="press mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-ink text-white hover:bg-eva-deep active:bg-ink disabled:opacity-50">
+      <%- include('icon', { name: 'check', cls: 'h-4 w-4' }) %><span><%= t('geo.confirm') %></span>
+    </button>
+  </div>
+  <% if (errors.location) { %>
+    <p class="mt-1.5 flex items-center gap-1.5 text-[13px] text-[#B3203A]"><%- include('icon', { name: 'alert', cls: 'h-4 w-4 shrink-0' }) %><%= t(errors.location) %></p>
+  <% } %>
+  <script type="application/json" data-geo-i18n><%- geoText %></script>
+</div>
+<%# Outside the hidden block on purpose: the saved location is kept even without JavaScript. %>
+<input type="hidden" name="location_lat" value="<%= hasPoint ? values.location_lat : '' %>">
+<input type="hidden" name="location_lng" value="<%= hasPoint ? values.location_lng : '' %>">
+<input type="hidden" name="location_label" value="<%= savedLabel %>">

@@ -40,10 +40,12 @@ export async function placeOrder(req, expectedTotal) {
     const order = await t.get(`
       INSERT INTO orders (user_id, customer_name, customer_email, phone_primary, phone_secondary,
                           zone_id, city, village, street, building_no, apartment_no,
+                          location_lat, location_lng, location_label,
                           subtotal, discount_total, delivery_fee, total, payment_method, lang)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', ?) RETURNING id`, [
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', ?) RETURNING id`, [
       user.id, user.full_name, user.email, user.phone_primary, user.phone_secondary || null,
       zone.id, zone.city_ar, zone.name_ar, user.street, user.building_no, user.apartment_no,
+      user.location_lat ?? null, user.location_lng ?? null, user.location_label ?? null,
       totals.subtotal, totals.discount_total, totals.delivery_fee, totals.total, req.lang,
     ]);
     const orderNo = `EVA-${10000 + order.id}`;

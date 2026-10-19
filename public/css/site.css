@@ -10,7 +10,7 @@
   --ease-out: cubic-bezier(.16, 1, .3, 1);
 }
 :root[lang="ar"] {
-  --font-display: 'Aref Ruqaa', 'Amiri', serif;
+  --font-display: 'El Messiri', 'IBM Plex Sans Arabic', sans-serif;
   --font-body: 'IBM Plex Sans Arabic', system-ui, sans-serif;
 }
 
@@ -24,10 +24,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Display type: italic Playfair in English, Ruqaa calligraphy in Arabic (never tracked or slanted). */
+/* Display type: italic Playfair in English, El Messiri in Arabic (never tracked or slanted).
+   :where() keeps the per-language rules at plain class weight, so a utility class on a heading
+   (font-medium, leading-relaxed…) can still override them. */
 .display { font-family: var(--font-display); font-weight: 500; line-height: 1.15; }
-:root[lang="en"] .display { font-style: italic; letter-spacing: -0.03em; }
-:root[lang="ar"] .display { font-weight: 700; line-height: 1.45; }
+:where(:root[lang="en"]) .display { font-style: italic; letter-spacing: -0.03em; }
+:where(:root[lang="ar"]) .display { font-weight: 600; line-height: 1.35; }
 
 .wordmark { font-family: 'Jost', system-ui, sans-serif; letter-spacing: .42em; text-transform: uppercase; font-weight: 500; }
 .num { font-family: 'Jost', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
@@ -94,6 +96,81 @@ body {
 /* Password checklist */
 .rule[data-ok="true"] { color: #2F7A55; }
 .rule[data-ok="true"] .rule-dot { background: #2F7A55; border-color: #2F7A55; }
+
+/* ---------- Auth characters (login / register). State lives in data-state on .ac:
+   idle · typing (looking at a field) · shy (password hidden) · peek (password shown) · error · happy (submit). */
+.ac-bg { background: radial-gradient(120% 90% at 50% 100%, #FDF3F8 0%, #F6ECE6 55%, #F3EAE3 100%); }
+.ac-svg { overflow: visible; }
+[dir="ltr"] .ac-svg { transform: scaleX(-1); } /* in English the form is on the other side */
+.ac .ch, .ac .ch-bob, .ac .eye { transform-box: fill-box; }
+.ac .ch, .ac .ch-bob { transform-origin: 50% 100%; }
+.ac .ch { transition: transform .38s var(--spring); }
+.ac .face { transition: transform .32s var(--spring); }
+.ac .eye { transform-origin: 50% 50%; transition: transform .1s ease, opacity .16s ease; }
+.ac .pupil { transition: transform .14s ease-out; }
+.ac .mouth, .ac .eye-shut { opacity: 0; transition: opacity .18s ease; }
+.ac .m-smile, .ac .m-beak { opacity: 1; }
+.ac.is-blinking .eye { transform: scaleY(.1); }
+
+/* Typing in a field: everyone looks and leans toward the form. */
+.ac[data-state="typing"] .ch-tall { transform: skewX(-9deg); }
+.ac[data-state="typing"] .ch-dark { transform: skewX(-5deg); }
+.ac[data-state="typing"] .ch-bean { transform: skewX(-8deg); }
+.ac[data-state="typing"] .ch-tall .face { transform: translate(10px, 3px); }
+.ac[data-state="typing"] .ch-dark .face { transform: translate(6px, 2px); }
+.ac[data-state="typing"] .ch-blob .face { transform: translate(10px, -2px); }
+.ac[data-state="typing"] .ch-bean .face { transform: translate(5px, 0); }
+.ac[data-state="typing"] .ch-tall .m-smile { opacity: 0; }
+.ac[data-state="typing"] .ch-tall .m-o { opacity: 1; }
+
+/* Password hidden: shy. Eyes shut or looking away; the tall one leans back. */
+.ac:is([data-state="shy"], [data-state="peek"]) .ch-tall { transform: skewX(8deg); }
+.ac:is([data-state="shy"], [data-state="peek"]) .ch-tall .face { transform: translate(-12px, -2px); }
+.ac:is([data-state="shy"], [data-state="peek"]) .ch-blob .face { transform: translate(-8px, 0); }
+.ac:is([data-state="shy"], [data-state="peek"]) :is(.ch-tall, .ch-blob) .eye { opacity: 0; }
+.ac:is([data-state="shy"], [data-state="peek"]) :is(.ch-tall, .ch-blob) .eye-shut { opacity: 1; }
+.ac:is([data-state="shy"], [data-state="peek"]) .ch-tall .m-smile { opacity: 0; }
+.ac:is([data-state="shy"], [data-state="peek"]) .ch-tall .m-flat { opacity: 1; }
+.ac[data-state="shy"] .ch-dark .face { transform: translate(-7px, -4px); }
+.ac[data-state="shy"] .ch-bean { transform: skewX(4deg); }
+.ac[data-state="shy"] .ch-bean .face { transform: translate(-5px, -2px); }
+
+/* Password shown: the dark one and the bean peek at it, one eye open. */
+.ac[data-state="peek"] .ch-dark { transform: skewX(-7deg); }
+.ac[data-state="peek"] .ch-dark .face { transform: translate(8px, 3px); }
+.ac[data-state="peek"] .ch-dark .eye-a { opacity: 0; }
+.ac[data-state="peek"] .ch-dark .eye-shut-a { opacity: 1; }
+.ac[data-state="peek"] .ch-bean { transform: skewX(-9deg); }
+.ac[data-state="peek"] .ch-bean .face { transform: translate(6px, 1px); }
+.ac[data-state="peek"] .ch-blob .m-smile { opacity: 0; }
+.ac[data-state="peek"] .ch-blob .m-o { opacity: 1; }
+
+/* Wrong details: sad faces and a little head shake. */
+.ac[data-state="error"] .ch-tall { transform: skewX(9deg); }
+.ac[data-state="error"] .ch-tall .face { transform: translate(-6px, 4px); }
+.ac[data-state="error"] .face { transform: translate(0, 3px); }
+.ac[data-state="error"] :is(.m-smile, .m-beak, .m-o, .m-flat) { opacity: 0; }
+.ac[data-state="error"] :is(.m-sad, .m-wavy) { opacity: 1; }
+.ac[data-state="error"] .ch-bob { animation: ac-shake .6s .15s ease-in-out both; }
+.ac[data-state="error"] .ch-dark .ch-bob { animation-delay: .22s; }
+.ac[data-state="error"] .ch-bean .ch-bob { animation-delay: .28s; }
+@keyframes ac-shake { 20% { transform: rotate(-3deg); } 45% { transform: rotate(2.5deg); } 70% { transform: rotate(-1.5deg); } 100% { transform: none; } }
+
+/* Submitted: a happy bounce. */
+.ac[data-state="happy"] .ch-bob { animation: ac-bounce .62s var(--spring) both; }
+.ac[data-state="happy"] .ch-dark .ch-bob { animation-delay: .06s; }
+.ac[data-state="happy"] .ch-blob .ch-bob { animation-delay: .1s; }
+.ac[data-state="happy"] .ch-bean .ch-bob { animation-delay: .14s; }
+@keyframes ac-bounce { 35% { transform: translateY(-14px) scaleY(1.03); } 70% { transform: translateY(0) scaleY(.97); } 100% { transform: none; } }
+
+/* Profile map picker: the pin's tip sits on the map centre and lifts while the map is dragged. */
+.map-pin { transform: translate(-50%, calc(-100% + 2px)); transition: transform .3s var(--spring); }
+.map-moving .map-pin { transform: translate(-50%, calc(-100% - 12px)); }
+.map-pin-shadow { width: 16px; height: 6px; border-radius: 50%; background: rgba(43,26,36,.35);
+  transform: translate(-50%, -50%); transition: transform .3s var(--spring), opacity .3s ease; }
+.map-moving .map-pin-shadow { transform: translate(-50%, -50%) scale(.6); opacity: .5; }
+[data-location-picker] .leaflet-container { font-family: inherit; }
+[data-location-picker] .leaflet-control-attribution { font-size: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; transition-duration: .01ms !important; }

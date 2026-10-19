@@ -13,7 +13,8 @@
     "test": "node --test test/*.test.js",
     "e2e": "node scripts/e2e.mjs",
     "import-collection": "node scripts/import-collection.js",
-    "test-email": "node scripts/test-email.js"
+    "test-email": "node scripts/test-email.js",
+    "test:security": "node scripts/security-test.mjs"
   },
   "engines": {
     "node": ">=22.13"

@@ -1,6 +1,7 @@
 <section aria-labelledby="hero-title">
   <div class="mx-auto max-w-2xl px-5 pb-4 pt-14 text-center md:pt-20">
-    <h1 id="hero-title" class="display text-[42px] text-eva md:text-[64px]"><%= t('home.hero_title') %></h1>
+    <%# El Messiri (Arabic) is wider and heavier than Playfair, so Arabic headings are set a size smaller. %>
+    <h1 id="hero-title" class="display text-eva <%= lang === 'ar' ? 'text-[36px] md:text-[52px]' : 'text-[42px] md:text-[64px]' %>"><%= t('home.hero_title') %></h1>
     <p class="mx-auto mt-3 max-w-md text-[16px] text-ink-soft md:text-[17px]"><%= t('home.hero_sub') %></p>
     <a href="/shop" class="press mt-8 inline-flex h-[54px] items-center justify-center rounded-[10px] bg-ink px-10 text-white shadow-lift hover:bg-eva-deep active:bg-ink">
       <span class="btn-label"><%= t('home.hero_cta') %></span>
@@ -11,7 +12,7 @@
 <% if (featured.length) { %>
 <section class="mx-auto max-w-6xl px-4 pt-20 md:px-6 md:pt-28" aria-labelledby="featured-title">
   <div class="flex items-end justify-between gap-4">
-    <h2 id="featured-title" class="display text-[34px] text-eva md:text-[46px]"><%= t('home.obsession') %></h2>
+    <h2 id="featured-title" class="display text-eva <%= lang === 'ar' ? 'text-[30px] md:text-[40px]' : 'text-[34px] md:text-[46px]' %>"><%= t('home.obsession') %></h2>
     <a href="/shop" class="mb-2 shrink-0 border-b border-ink/40 pb-0.5 text-[14px] transition-colors hover:border-eva-deep hover:text-eva-deep active:opacity-70"><%= t('home.view_all') %></a>
   </div>
   <div class="mt-8 grid grid-cols-2 gap-x-3 gap-y-9 md:grid-cols-3 md:gap-x-5 lg:grid-cols-4">
@@ -26,7 +27,7 @@
 <section class="bg-sand/70 py-20 md:py-24" aria-labelledby="reviews-title">
   <div class="mx-auto max-w-6xl px-4 md:px-6">
     <div class="flex items-end justify-between gap-4">
-      <h2 id="reviews-title" class="display text-[32px] text-eva md:text-[42px]"><%= t('home.reviews_title') %></h2>
+      <h2 id="reviews-title" class="display text-eva <%= lang === 'ar' ? 'text-[28px] md:text-[38px]' : 'text-[32px] md:text-[42px]' %>"><%= t('home.reviews_title') %></h2>
       <div class="flex gap-2.5" data-carousel-controls="reviews">
         <button type="button" data-carousel-prev class="press grid h-11 w-11 place-items-center rounded-full border border-eva-deep/50 text-eva-deep hover:bg-eva-deep hover:text-white active:bg-ink" aria-label="<%= t('nav.previous') %>"><%- include('../partials/icon', { name: 'chevron-left', cls: 'h-5 w-5', flipRtl: true }) %></button>
         <button type="button" data-carousel-next class="press grid h-11 w-11 place-items-center rounded-full border border-eva-deep/50 text-eva-deep hover:bg-eva-deep hover:text-white active:bg-ink" aria-label="<%= t('nav.next') %>"><%- include('../partials/icon', { name: 'chevron-right', cls: 'h-5 w-5', flipRtl: true }) %></button>

@@ -109,9 +109,9 @@ local database, stop the server first (it can only be open in one program at a t
 
 | Step | Details |
 |---|---|
-| Create an account | Name, email (must be a valid address with `@` and a domain), and a strong password: 8+ characters with upper and lower case, a number and a symbol. Checked live in the browser and again on the server. |
-| Welcome email | Sent immediately after registering. |
-| Profile | City and neighborhood chosen from the delivery list, then street, building number and apartment number (all required); a primary and a second phone number (both required, and they must differ). Arabic-Indic digits are accepted. |
+| Create an account | Name, email (must be a valid address with `@` and a domain), and a strong password: 8+ characters with upper and lower case, a number and a symbol. Checked live in the browser and again on the server. The login and sign-up pages have four animated characters that follow the pointer and react to the form (look at the email, turn shy for the password, peek when it is shown, look sad after wrong details). |
+| Welcome email | Sent once, the first time the customer saves a complete profile. |
+| Profile | City and neighborhood chosen from the delivery list, then street, building number and apartment number (all required); a primary and a second phone number (both required, and they must differ). Arabic-Indic digits are accepted. Optionally, the customer pins the house on a map (search, "use my location", or drag the map under the pin, then "Confirm location"). Confirming fills in the street, building number and neighborhood from the map where it knows them (the apartment number is always typed). The point is saved with the profile and copied onto each order. |
 | Cart | Totals are calculated on the server: subtotal, discount, delivery fee (set by the neighborhood saved in the customer's account), total. Quantities can't exceed stock. |
 | Checkout | Cash on delivery. Stock is taken in one transaction, so two customers can't buy the last piece. |
 | Order confirmation email | Order number, every item **with its photo embedded in the email**, totals, address. |
@@ -122,7 +122,7 @@ local database, stop the server first (it can only be open in one program at a t
 ## What the owner can do (`/admin`)
 
 - **Overview:** orders per status, revenue from delivered orders, cash still to collect, average rating, low stock, latest orders.
-- **Orders:** filter by status, search by order number, name, phone or neighborhood. Each order shows the customer name, email, both phones, the full address (city, neighborhood, street, building, apartment), the items with photos and prices, the status history and the rating. One click changes the status and emails the customer.
+- **Orders:** filter by status, search by order number, name, phone or neighborhood. Each order shows the customer name, email, both phones, the full address (city, neighborhood, street, building, apartment), the items with photos and prices, the status history and the rating. When the customer pinned a map location, an **Open in Google Maps** button takes the courier straight to it. One click changes the status and emails the customer.
 - **Products:** add/edit with an optional Arabic + English name (a tarha can have no name), description, photos (resized in the browser before upload), price, discount % and stock. Prices, discounts, stock and visibility can also be edited straight from the product list. **Bulk discount:** apply or remove a % for selected products or for everything. **Delete:** products that were never ordered are deleted; products in past orders are archived (hidden) so order history stays intact, and can be restored.
 - **Delivery:** neighborhoods grouped by city, each with its own delivery fee. A neighborhood with no fee is hidden from customers; 0 means free delivery. Add or delete neighborhoods here.
 - **Settings:** a contact email shown in the footer. The page also shows whether email sending is connected and the latest emails sent.
@@ -142,12 +142,14 @@ configured. Then open **Products → Hidden** to price and publish them. Already
 ## Tests
 
 ```bash
-npm test         # unit tests: validation rules, pricing, orders (incl. two customers racing for the last piece)
+npm test         # unit tests: validation rules, pricing, orders (incl. two customers racing for the last piece), address lookup
 npm run e2e      # full browser run of every workflow (needs ADMIN_EMAIL/ADMIN_PASSWORD in .env)
+npm run test:security  # 34 attack checks: CSRF, other people's orders, XSS, SQL injection, open redirects,
+                       # password guessing, price tampering, file access, production cookies/HTTPS headers
 ```
 
 Both use a throwaway in-memory database, so they never touch real orders or products. `npm run e2e`
-registers a customer, fills the profile, orders, then signs in as the owner, ships and delivers the
+checks the login characters, registers a customer, fills the profile and pins it on the map (against a stand-in address service), orders, then signs in as the owner, ships and delivers the
 order, rates it, prices a neighborhood, and adds/edits/discounts/deletes a product. Screenshots of
 each step are saved in `temporary screenshots/`.
 
@@ -166,7 +168,7 @@ src/db.js, schema.sql     Postgres (Supabase in production, embedded locally)
 src/storage.js            product photos (Supabase Storage in production, uploads/ locally)
 src/pricing.js            the only place prices and totals are calculated
 public/js/validation.js   validation rules shared by the browser and the server
-scripts/                  db:setup, migration, e2e test, collection import, test email
+scripts/                  db:setup, migration, e2e and security tests, collection import, test email
 ```
 
 Security: passwords hashed with scrypt; CSRF tokens on every form; rate-limited sign-in, sign-up and

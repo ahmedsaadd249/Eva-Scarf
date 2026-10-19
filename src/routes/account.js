@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { all, get, run } from '../db.js';
 import {
-  endOtherSessions, hashPassword, logIn, logOut, randomToken, requireUser, safeNext, sha256, verifyPassword,
+  endOtherSessions, hashPassword, logIn, logOut, needsRehash, randomToken, requireUser, safeNext, sha256, verifyPassword,
 } from '../auth.js';
 import { sendPasswordResetEmail, sendWelcomeEmail } from '../emails.js';
 import { getOrder } from '../orders.js';
@@ -66,7 +66,7 @@ router.post('/account/register', authLimiter, async (req, res) => {
     return again({ email: 'errors.email_taken' });
   }
   await logIn(req, user);
-  sendWelcomeEmail(user);
+  // The welcome email goes out once the profile is completed (see POST /account/profile).
   req.flash('success', 'auth.registered', { name: user.full_name });
   const next = safeNext(req.body.next, '');
   res.redirect('/account/profile' + (next ? `?next=${encodeURIComponent(next)}` : ''));
@@ -86,6 +86,10 @@ router.post('/account/login', authLimiter, async (req, res) => {
     return res.status(422).page('account/login', {
       title: res.locals.t('auth.login_title'), values: { email }, errors: { form: 'errors.login_failed' }, next: req.body.next,
     });
+  }
+  // Passwords saved with older, weaker hash settings are upgraded now that we have the plain text.
+  if (needsRehash(user.password_hash)) {
+    await run('UPDATE users SET password_hash = ? WHERE id = ?', [await hashPassword(String(req.body.password)), user.id]);
   }
   await logIn(req, user);
   res.redirect(safeNext(req.body.next, user.role === 'admin' ? '/admin' : '/'));
@@ -107,6 +111,7 @@ async function profilePage(req, res, locals) {
     next: undefined,
     incomplete: !isProfileComplete(req.user) || !(await deliverableZone(req.user.zone_id)),
     cities: groupByCity(await listZones({ deliverableOnly: true }), req.lang),
+    pageAssets: { leaflet: true },
     ...locals,
   });
 }
@@ -122,10 +127,13 @@ router.post('/account/profile', requireUser, async (req, res) => {
   }
   // city/village keep the Arabic names as a readable copy; the zone is the source of truth.
   await run(`UPDATE users SET full_name = ?, zone_id = ?, city = ?, village = ?, street = ?, building_no = ?, apartment_no = ?,
-               phone_primary = ?, phone_secondary = ? WHERE id = ?`,
+               phone_primary = ?, phone_secondary = ?, location_lat = ?, location_lng = ?, location_label = ? WHERE id = ?`,
   [values.full_name, zone.id, zone.city_ar, zone.name_ar, values.street, values.building_no, values.apartment_no,
-    values.phone_primary, values.phone_secondary, req.user.id]);
-  req.flash('success', 'profile.saved');
+    values.phone_primary, values.phone_secondary, values.location_lat, values.location_lng, values.location_label, req.user.id]);
+  // First complete save: send the welcome email (once; the update only matches if not welcomed yet).
+  const welcomed = await get('UPDATE users SET welcomed_at = now() WHERE id = ? AND welcomed_at IS NULL RETURNING *', [req.user.id]);
+  if (welcomed) sendWelcomeEmail(welcomed);
+  req.flash('success', welcomed ? 'profile.saved_welcome' : 'profile.saved');
   res.redirect(safeNext(req.body.next, '/account/profile'));
 });
 

@@ -1,0 +1,63 @@
+<%#
+  Decorative characters beside the login / register / password forms (purely visual, hidden from
+  screen readers). Their reactions are CSS states on data-state; public/js/auth-characters.js moves
+  the eyes and switches states. "error" is set here by the server so wrong details show without JS too.
+  Coordinates face the form in Arabic (panel on the left); English mirrors the drawing in CSS.
+%>
+<div class="ac ac-bg relative order-first h-[184px] overflow-hidden md:order-none md:h-auto md:min-h-[580px]"
+     data-auth-characters data-state="<%= typeof acState !== 'undefined' && acState ? acState : 'idle' %>" aria-hidden="true">
+  <svg class="ac-svg absolute inset-x-0 bottom-0 mx-auto h-[164px] w-auto md:bottom-[13%] md:h-auto md:w-[74%] md:max-w-[400px]"
+       viewBox="0 0 330 266" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="160" cy="262" rx="156" ry="4" fill="#2B1A24" opacity=".07"/>
+
+    <%# 1. Tall rectangle (back) %>
+    <g class="ch ch-tall" data-ch="tall"><g class="ch-bob">
+      <rect x="92" y="22" width="110" height="240" rx="3" fill="#B4186F"/>
+      <g class="face">
+        <g class="eye" data-max="2.6"><circle class="eye-anchor" cx="148" cy="44" r="6" fill="#fff"/><circle class="pupil" cx="148" cy="44" r="3" fill="#2B1A24"/></g>
+        <g class="eye" data-max="2.6"><circle class="eye-anchor" cx="180" cy="44" r="6" fill="#fff"/><circle class="pupil" cx="180" cy="44" r="3" fill="#2B1A24"/></g>
+        <path class="eye-shut" d="M142 45h12M174 45h12" stroke="#2B1A24" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+        <path class="mouth m-smile" d="M158 57q6 5.5 12 0" stroke="#2B1A24" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <path class="mouth m-o" d="M164 54v9" stroke="#2B1A24" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+        <path class="mouth m-flat" d="M159 59h10" stroke="#2B1A24" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <path class="mouth m-sad" d="M157 62q7-6.5 14 0" stroke="#2B1A24" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+      </g>
+    </g></g>
+
+    <%# 2. Dark rectangle %>
+    <g class="ch ch-dark" data-ch="dark"><g class="ch-bob">
+      <rect x="166" y="92" width="72" height="170" rx="2" fill="#2B1A24"/>
+      <g class="face">
+        <g class="eye eye-a" data-max="3.4"><circle class="eye-anchor" cx="194" cy="114" r="7.5" fill="#fff"/><circle class="pupil" cx="194" cy="114" r="3.8" fill="#2B1A24"/></g>
+        <g class="eye eye-b" data-max="3.4"><circle class="eye-anchor" cx="218" cy="114" r="7.5" fill="#fff"/><circle class="pupil" cx="218" cy="114" r="3.8" fill="#2B1A24"/></g>
+        <path class="eye-shut eye-shut-a" d="M187 115h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+        <path class="eye-shut eye-shut-b" d="M211 115h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+        <path class="mouth m-sad" d="M199 136q7-5 14 0" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+      </g>
+    </g></g>
+
+    <%# 3. Blob (front) %>
+    <g class="ch ch-blob" data-ch="blob"><g class="ch-bob">
+      <path d="M14 262A96 96 0 0 1 206 262Z" fill="#E8339A"/>
+      <g class="face">
+        <g class="eye" data-max="3.2"><circle class="eye-anchor" cx="92" cy="214" r="6" fill="none"/><circle class="pupil" cx="92" cy="214" r="5.5" fill="#2B1A24"/></g>
+        <g class="eye" data-max="3.2"><circle class="eye-anchor" cx="134" cy="214" r="6" fill="none"/><circle class="pupil" cx="134" cy="214" r="5.5" fill="#2B1A24"/></g>
+        <path class="eye-shut" d="M85 216q7-8 14 0M127 216q7-8 14 0" stroke="#2B1A24" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <path class="mouth m-smile" d="M102 226a11 11 0 0 0 22 0z" fill="#2B1A24"/>
+        <path class="mouth m-o" d="M108 232a5 6 0 1 0 10 0a5 6 0 1 0-10 0z" fill="#2B1A24"/>
+        <path class="mouth m-sad" d="M104 236q9-8 18 0" stroke="#2B1A24" stroke-width="3" stroke-linecap="round" fill="none"/>
+      </g>
+    </g></g>
+
+    <%# 4. Bean (front right), with a little beak that points at the form %>
+    <g class="ch ch-bean" data-ch="bean"><g class="ch-bob">
+      <path d="M222 262V200a40 40 0 0 1 80 0V262Z" fill="#F4B740"/>
+      <g class="face">
+        <g class="eye" data-max="3"><circle class="eye-anchor" cx="256" cy="190" r="5" fill="none"/><circle class="pupil" cx="256" cy="190" r="4.5" fill="#2B1A24"/></g>
+        <path class="eye-shut" d="M250 191h12" stroke="#2B1A24" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <path class="mouth m-beak" d="M268 205h50" stroke="#2B1A24" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <path class="mouth m-wavy" d="M268 206q6-6 12 0t12 0t12 0" stroke="#2B1A24" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+      </g>
+    </g></g>
+  </svg>
+</div>

@@ -151,7 +151,7 @@
     "reset_invalid": "This link is invalid or has expired. Request a new one.",
     "reset_save": "Save password",
     "reset_done": "Your password was changed and you're signed in.",
-    "registered": "Welcome, {name}! We sent a welcome email. Add your address so you're ready to order."
+    "registered": "Welcome, {name}! Add your address and both phone numbers, then click \"Save details\"."
   },
   "profile": {
     "title": "My account",
@@ -183,7 +183,8 @@
     "choose_zone": "Choose a neighborhood",
     "zone_hint": "The delivery fee for your neighborhood is shown in your cart.",
     "no_zones": "Delivery isn't available right now. Contact us on Instagram or TikTok.",
-    "not_saved": "Your details weren't saved. Fill in the fields marked in red, then save."
+    "not_saved": "Your details weren't saved. Fill in the fields marked in red, then save.",
+    "saved_welcome": "Your details were saved, and we sent you a welcome email."
   },
   "address": {
     "format": "{street}, Building {building_no}, Apt {apartment_no}, {village}, {city}"
@@ -225,7 +226,7 @@
   },
   "errors": {
     "required": "This field is required.",
-    "email_invalid": "Enter a valid email address, like name@example.com",
+    "email_invalid": "Enter a valid email address, like name@gmail.com",
     "email_taken": "This email already has an account. Sign in instead.",
     "password_weak": "This password is too weak. It needs to meet every rule.",
     "password_too_long": "This password is too long (128 characters at most).",
@@ -247,10 +248,11 @@
     "rate": "Wait a few minutes, then try again.",
     "back_home": "Back to home",
     "zone_required": "Choose your neighborhood.",
-    "zone_unavailable": "We no longer deliver to that neighborhood. Choose another one."
+    "zone_unavailable": "We no longer deliver to that neighborhood. Choose another one.",
+    "location_invalid": "We couldn't read the map location. Move the map and press \"Confirm location\" again."
   },
   "footer": {
-    "tagline": "Sudanese tarhas in many different designs, delivered to your door.",
+    "tagline": "Sudanese tarhas in many different designs.",
     "shop": "Shop",
     "help": "Your account",
     "contact": "Contact us",
@@ -265,9 +267,8 @@
       "subject": "Welcome to Eva Scarf",
       "heading": "Welcome, {name}!",
       "intro": "We're glad you joined Eva Scarf, home of Sudanese tarhas in every colour.",
-      "next": "Next step: add your delivery address and both phone numbers so your first order reaches you easily.",
-      "cta": "Complete your details",
-      "browse": "Or browse the tarhas now"
+      "next": "Your account is ready and your delivery details are saved, so you can now order your favourite tarha.",
+      "cta": "Start shopping"
     },
     "order": {
       "subject": "Your order {no} is confirmed",
@@ -468,6 +469,39 @@
     "name_hint": "Names are optional; a tarha can be left without one.",
     "unnamed": "Unnamed (#{n})",
     "unnamed_item": "Unnamed",
-    "upload_too_big": "These photos are too large together. Choose fewer at a time (up to 4 MB)."
+    "upload_too_big": "These photos are too large together. Choose fewer at a time (up to 4 MB).",
+    "map_location": "Map location",
+    "open_in_maps": "Open in Google Maps"
+  },
+  "geo": {
+    "title": "Pin your location on the map",
+    "recommended": "optional, helps the courier",
+    "hint": "Move the map until the pin sits on your home, then press \"Confirm location\".",
+    "move_map": "Move the map to pick your location",
+    "search_placeholder": "Search for an area or street",
+    "search": "Search",
+    "locate": "Use my current location",
+    "delivery_location": "Delivery location",
+    "confirm": "Confirm location",
+    "detecting": "Finding the address…",
+    "saved": "Location saved",
+    "saved_hint": "It is stored with your details when you press \"Save\".",
+    "not_confirmed": "This location is not confirmed yet.",
+    "locating": "Finding your location…",
+    "denied": "Location access was blocked. Allow it in your browser settings, or move the map yourself.",
+    "unavailable": "We can't find your location right now. Move the map yourself.",
+    "timeout": "Finding your location took too long. Try again, or move the map yourself.",
+    "searching": "Searching…",
+    "no_results": "No results. Try another area or street name.",
+    "unknown_place": "Unnamed place",
+    "error_login": "Log in to use the map.",
+    "error_rate": "Too many requests in a short time. Wait a minute and try again.",
+    "error_bad_point": "That location is not valid.",
+    "error_bad_query": "Type at least 2 characters to search.",
+    "error_service": "The address service isn't responding. You can confirm the spot without an address or try again shortly.",
+    "error_not_found": "We couldn't find an address for this spot.",
+    "filled": "Filled in {fields} from the map. Check them before saving.",
+    "zone_unknown": "We couldn't tell the neighborhood from the map; please choose it from the list.",
+    "add_apartment": "Add your apartment number."
   }
 }

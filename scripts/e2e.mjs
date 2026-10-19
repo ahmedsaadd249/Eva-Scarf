@@ -4,6 +4,7 @@
 // outbox, so the real store data is never touched. Emails are read back from that temporary outbox.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +13,33 @@ import puppeteer from 'puppeteer';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'eva-e2e-'));
 const PORT = process.env.E2E_PORT || '3101';
+
+// A stand-in for OpenStreetMap's Nominatim, so the map picker never calls the real service.
+const PLACE = { lat: '30.0561', lon: '31.2003' };
+const nominatimCalls = [];
+const nominatim = http.createServer((req, res) => {
+  const url = new URL(req.url, 'http://mock');
+  nominatimCalls.push({ path: url.pathname, ua: req.headers['user-agent'], params: Object.fromEntries(url.searchParams) });
+  const place = (lat, lon) => ({
+    lat, lon, display_name: 'شارع الأربعين، المهندسين، الجيزة، مصر',
+    address: { road: 'شارع الأربعين', house_number: '27', suburb: 'المهندسين', city: 'الجيزة', country: 'مصر' },
+  });
+  res.setHeader('Content-Type', 'application/json');
+  if (url.pathname === '/reverse') return res.end(JSON.stringify(place(url.searchParams.get('lat'), url.searchParams.get('lon'))));
+  if (url.pathname === '/search') return res.end(JSON.stringify([place(PLACE.lat, PLACE.lon)]));
+  res.statusCode = 404;
+  res.end('{}');
+});
+await new Promise((r) => nominatim.listen(0, '127.0.0.1', r));
+const NOMINATIM_URL = `http://127.0.0.1:${nominatim.address().port}`;
+// Map tiles are answered locally too (a blank 1×1 PNG): no load on OpenStreetMap's tile servers.
+const BLANK_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=', 'base64');
+async function stubMapTiles(page) {
+  await page.setRequestInterception(true);
+  page.on('request', (req) => (/^https:\/\/([a-c]\.)?tile\.openstreetmap\.org\//.test(req.url())
+    ? req.respond({ status: 200, contentType: 'image/png', body: BLANK_PNG })
+    : req.continue()));
+}
 // Set before loading the app: values already in the environment win over .env.
 Object.assign(process.env, {
   PORT,
@@ -25,6 +53,8 @@ Object.assign(process.env, {
   SMTP_HOST: '',
   NODE_ENV: 'development',
   AUTH_RATE_LIMIT: '100',
+  NOMINATIM_URL,
+  GEO_MIN_INTERVAL_MS: '0',
 });
 const { config } = await import('../src/config.js');
 if (!config.admin.email || !config.admin.password) {
@@ -107,6 +137,36 @@ try {
   active = page;
   page.on('pageerror', (e) => errors.push(e.message));
   await page.setViewport({ width: 430, height: 932 });
+  await stubMapTiles(page);
+
+  // ---------------------------------------------------------------- characters
+  section('Login / register characters react to the form');
+  await page.goto(`${BASE}/account/register`, { waitUntil: 'networkidle0' });
+  const acState = () => page.$eval('[data-auth-characters]', (el) => el.dataset.state);
+  const waitState = (s) => page.waitForFunction((want) => document.querySelector('[data-auth-characters]')?.dataset.state === want, { timeout: 3000 }, s);
+  assert.equal(await page.$$eval('[data-auth-characters] [data-ch]', (els) => els.length), 4, 'four characters drawn');
+  assert.equal(await acState(), 'idle');
+  await page.waitForFunction(() => document.querySelector('[data-auth-characters]')?.dataset.ready === '1');
+  const pupil = () => page.$eval('[data-ch="dark"] .pupil', (el) => el.style.transform);
+  await page.mouse.move(5, 5);
+  await sleep(120);
+  const lookTopLeft = await pupil();
+  await page.mouse.move(420, 900);
+  await sleep(120);
+  assert.notEqual(await pupil(), lookTopLeft, 'eyes follow the pointer');
+  ok('four characters render, and their eyes follow the pointer');
+  await page.focus('#f-email');
+  await waitState('typing');
+  await page.focus('#f-password');
+  await waitState('shy');
+  await page.$eval('[data-toggle-password="f-password"]', (b) => b.click());
+  await waitState('peek');
+  await shot(page, 'characters-peek', false);
+  await page.$eval('[data-toggle-password="f-password"]', (b) => b.click());
+  await waitState('shy');
+  await page.$eval('#f-password', (el) => el.blur());
+  await waitState('idle');
+  ok('email → look and lean, password → shy, show password → peek, blur → idle');
 
   // ---------------------------------------------------------------- register
   section('Register: validation and welcome email');
@@ -138,9 +198,11 @@ try {
   await submit(page, 'form[action="/account/register"]');
   assert.match(page.url(), /\/account\/profile/);
   ok('valid registration logs in and opens the profile');
-  const welcome = await waitForEmail('welcome', email, t0);
-  assert.match(welcome.html, /Amna Osman/);
-  ok('welcome email written to outbox');
+  await sleep(800);
+  const welcomeFiles = () => (fs.existsSync(config.outboxDir) ? fs.readdirSync(config.outboxDir) : [])
+    .filter((f) => f.includes('-welcome-') && f.endsWith('.html'));
+  assert.equal(welcomeFiles().length, 0, 'no welcome email at sign-up');
+  ok('no welcome email yet: it goes out once the profile is saved');
 
   // ---------------------------------------------------------------- profile
   section('Profile: neighborhood, full address and both phones required');
@@ -160,6 +222,43 @@ try {
   assert.ok(await page.$('#f-apartment_no-error'), 'apartment number required');
   assert.ok(await page.$('#f-phone_secondary-error'), 'second phone required');
   ok('missing neighborhood, apartment number and second phone are rejected');
+
+  // Map picker: search (Enter must not submit the profile), pick the result, confirm.
+  await page.waitForSelector('[data-location-picker]:not([hidden]) .leaflet-container', { timeout: 15000 });
+  assert.equal(await page.$eval('[data-location-picker] .leaflet-control-attribution', (el) => el.textContent.includes('OpenStreetMap')), true);
+  await page.$eval('[name="street"]', (el) => { el.value = 'ررر'; }); // junk the map should replace
+  const profileUrl = page.url();
+  await page.type('[data-geo-search]', 'المهندسين');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('[data-geo-results] li button', { timeout: 5000 });
+  assert.equal(page.url(), profileUrl, 'Enter in the map search does not submit the form');
+  await page.$eval('[data-geo-results] li button', (b) => b.click());
+  await page.waitForFunction(() => !document.querySelector('[data-geo-confirm]').disabled, { timeout: 8000 });
+  await page.$eval('[data-geo-confirm]', (b) => b.click());
+  const picked = await page.$eval('form[action="/account/profile"]', (f) => ({
+    lat: f.elements.location_lat.value, lng: f.elements.location_lng.value, label: f.elements.location_label.value, street: f.elements.street.value,
+    building: f.elements.building_no.value, zone: f.elements.zone_id.value, city: document.querySelector('#f-city').value,
+    note: document.querySelector('[data-geo-note]').textContent,
+    status: document.querySelector('[data-geo-status]').textContent,
+  }));
+  assert.deepEqual([Number(picked.lat), Number(picked.lng)], [Number(PLACE.lat), Number(PLACE.lon)]);
+  assert.match(picked.label, /المهندسين/);
+  assert.equal(picked.street, 'شارع الأربعين', 'street replaced from the map');
+  assert.equal(picked.building, '27', 'building number from the map');
+  assert.equal(picked.zone, String(zone.id), 'neighborhood chosen from the map (Mohandessin)');
+  assert.equal(picked.city, zone.city_ar);
+  assert.match(picked.note, /ملأنا .*الشارع.*من الخريطة/);
+  assert.match(picked.note, /أكملي رقم الشقة/);
+  assert.match(picked.status, /تم حفظ الموقع/);
+  ok(`map search + "تأكيد الموقع" fill the location (${picked.lat}, ${picked.lng}), street, building 27 and the neighborhood`);
+  assert.ok(nominatimCalls.some((c) => c.path === '/search' && c.params.countrycodes === 'eg' && c.params['accept-language'] === 'ar'));
+  assert.ok(nominatimCalls.length && nominatimCalls.every((c) => /^EvaScarf\/1\.0 \(\+\S+\)$/.test(c.ua)), 'identifying User-Agent');
+  ok(`address lookups go through the server (${nominatimCalls.length} calls, Egypt only, Arabic, User-Agent "${nominatimCalls[0].ua}")`);
+  const apiStatus = (p, url) => p.evaluate((u) => fetch(u).then((r) => r.status), url);
+  assert.equal(await apiStatus(page, '/api/geo/reverse?lat=200&lng=31'), 400);
+  assert.equal(await apiStatus(page, '/api/geo/search?q=x'), 400);
+  ok('bad coordinates and one-letter searches are refused (400)');
+
   await fill(page, profile);
   await page.select('#f-city', zone.city_ar);
   await page.select('#f-zone_id', String(zone.id));
@@ -170,6 +269,13 @@ try {
   assert.equal(saved.apartment_no, '3');
   assert.equal(saved.phone_secondary, '+249991234567');
   ok('profile saved with neighborhood Mohandessin (phones normalised: +249991234567)');
+  assert.deepEqual([saved.location_lat, saved.location_lng], [Number(PLACE.lat), Number(PLACE.lon)]);
+  assert.match(saved.location_label, /المهندسين/);
+  ok('map location saved on the profile');
+  const welcome = await waitForEmail('welcome', email, t0);
+  assert.match(welcome.html, /Amna Osman/);
+  assert.ok((await db.get('SELECT welcomed_at FROM users WHERE email = ?', [email])).welcomed_at);
+  ok('welcome email sent after the first "Save details"');
   await shot(page, 'profile-saved');
 
   // ---------------------------------------------------------------- cart
@@ -208,6 +314,8 @@ try {
   assert.equal(order.total, expected);
   assert.equal(order.status, 'processing');
   assert.equal(order.apartment_no, '3');
+  assert.deepEqual([order.location_lat, order.location_lng], [Number(PLACE.lat), Number(PLACE.lon)]);
+  ok('the order keeps a copy of the map location');
   const stockAfter = (await db.get('SELECT stock FROM products WHERE id = ?', [karkadeh.id])).stock;
   assert.equal(stockAfter, karkadeh.stock - 2);
   ok(`stock decremented (Karkadeh ${karkadeh.stock} → ${stockAfter})`);
@@ -225,6 +333,12 @@ try {
   admin.on('pageerror', (e) => errors.push(e.message));
   await admin.setViewport({ width: 1366, height: 900 });
   await admin.goto(`${BASE}/account/login`, { waitUntil: 'networkidle0' });
+  await fill(admin, { email: config.admin.email, password: 'Wrong#Pass123' });
+  await submit(admin, 'form[action="/account/login"]');
+  assert.equal(await admin.$eval('[data-auth-characters]', (el) => el.dataset.state), 'error');
+  assert.ok(await admin.$('[role="alert"]'), 'wrong-details message');
+  ok('wrong password: message shown and the characters look sad');
+  await shot(admin, 'login-error', false);
   await fill(admin, { email: config.admin.email, password: config.admin.password });
   await submit(admin, 'form[action="/account/login"]');
   assert.match(admin.url(), /\/admin$/);
@@ -243,6 +357,10 @@ try {
     assert.ok(detail.includes(s), `order detail shows ${s}`);
   }
   ok('order detail shows contact info and every address field');
+  const mapsLink = await admin.$eval('a[data-maps-link]', (a) => ({ href: a.href, target: a.target, text: a.textContent.trim() }));
+  assert.equal(mapsLink.href, `https://www.google.com/maps?q=${Number(PLACE.lat)},${Number(PLACE.lon)}`);
+  assert.equal(mapsLink.target, '_blank');
+  ok(`"${mapsLink.text}" opens ${mapsLink.href}`);
   await shot(admin, 'admin-order');
 
   const t2 = Date.now();
@@ -295,10 +413,14 @@ try {
   await page.select('#f-city', dokki.city_ar);
   await page.select('#f-zone_id', String(dokki.id));
   await submit(page, 'form[action="/account/profile"]');
-  assert.equal((await db.get('SELECT zone_id FROM users WHERE email = ?', [email])).zone_id, dokki.id);
+  const resaved = await db.get('SELECT zone_id, location_lat FROM users WHERE email = ?', [email]);
+  assert.equal(resaved.zone_id, dokki.id);
+  assert.equal(resaved.location_lat, Number(PLACE.lat), 'saving again keeps the map location');
   await page.goto(`${BASE}/cart`, { waitUntil: 'networkidle0' });
   assert.ok((await summary()).includes('رسوم التوصيل') && (await summary()).includes('75.00'));
   ok('changing the profile to Dokki changes the cart fee to 75 EGP');
+  assert.equal(welcomeFiles().length, 1, 'saving the profile again sends no second welcome email');
+  ok('saving the profile again does not send another welcome email');
   await shot(page, 'cart-zone');
 
   const guestContext = await browser.createBrowserContext();
@@ -312,6 +434,8 @@ try {
   assert.ok(guestSummary.includes('حسب الحي'));
   assert.ok(await guest.$('a[href="/account/login?next=/cart"]'), 'sign-in link to get the fee');
   ok('a guest sees "حسب الحي" and a link to sign in');
+  assert.equal(await guest.evaluate(() => fetch('/api/geo/search?q=Dokki').then((r) => r.status)), 401);
+  ok('the address lookup is for signed-in customers only (guest gets 401)');
   await guestContext.close();
 
   section('Owner: add (without a name), price, discount and stock');
@@ -383,6 +507,7 @@ try {
 } finally {
   await browser.close();
   await new Promise((r) => server.close(r));
+  nominatim.close();
   await db.closeDb();
   fs.rmSync(TMP, { recursive: true, force: true });
   process.exit(process.exitCode ?? 0); // the session store / pools may keep timers alive

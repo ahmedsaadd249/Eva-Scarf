@@ -39,7 +39,7 @@
   <div id="search-panel" data-open="false" class="search-panel absolute inset-x-0 top-full border-b border-line bg-paper/95 shadow-lift backdrop-blur-md">
     <form action="/shop" method="get" role="search" class="mx-auto flex max-w-2xl items-center gap-2 px-4 py-4">
       <label for="search-input" class="sr-only"><%= t('nav.search') %></label>
-      <input id="search-input" name="q" type="search" placeholder="<%= t('shop.search_placeholder') %>" autocomplete="off" class="h-12 flex-1 rounded-full border border-line bg-white px-5 text-[16px] outline-none transition-colors placeholder:text-ink-faint focus:border-eva-deep">
+      <input id="search-input" name="q" type="search" placeholder="<%= t('shop.search_placeholder') %>" autocomplete="off" class="h-12 min-w-0 flex-1 rounded-full border border-line bg-white px-5 text-[16px] outline-none transition-colors placeholder:text-ink-faint focus:border-eva-deep">
       <button class="press h-12 rounded-full bg-ink px-5 text-white hover:bg-eva-deep active:bg-ink"><span class="btn-label"><%= t('nav.search') %></span></button>
     </form>
   </div>

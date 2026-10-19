@@ -63,7 +63,7 @@
               <option value=""><%= t('profile.choose_zone') %></option>
               <%# Neighborhood names only: no city headings and no prices (the fee shows in the cart). %>
               <% cities.forEach(function (c) { c.zones.forEach(function (z) { %>
-                <option value="<%= z.id %>" data-city="<%= c.key %>" <%= z.id === selectedZone ? 'selected' : '' %>><%= L(z, 'name') %></option>
+                <option value="<%= z.id %>" data-city="<%= c.key %>" data-names="<%= z.name_ar %>|<%= z.name_en %>" <%= z.id === selectedZone ? 'selected' : '' %>><%= L(z, 'name') %></option>
               <% }) }) %>
             </select>
             <%- include('../partials/icon', { name: 'chevron-down', cls: 'pointer-events-none absolute end-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft' }) %>
@@ -74,6 +74,7 @@
             <p id="f-zone_id-hint" class="mt-1.5 text-[13px] text-ink-soft"><%= t('profile.zone_hint') %></p>
           <% } %>
         </div>
+        <%- include('../partials/location-picker') %>
         <div class="sm:col-span-2">
           <%- include('../partials/field', { field: { name: 'street', label: t('profile.street'), value: values.street, error: errors.street, autocomplete: 'address-line1', required: true } }) %>
         </div>

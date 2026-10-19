@@ -40,8 +40,12 @@ router.post('/cart/add', async (req, res) => {
 router.post('/cart/update', async (req, res) => {
   const id = Math.trunc(Number(req.body.product_id));
   const product = await getProductById(id);
+  if (!product) {
+    setCartQty(req, id, 0); // unknown product: never store it in the cart
+    return res.redirect('/cart');
+  }
   let qty = Math.trunc(Number(req.body.qty) || 0);
-  if (product && qty > product.stock) {
+  if (qty > product.stock) {
     qty = product.stock;
     req.flash('info', 'cart.notice_reduced_simple', { qty });
   }

@@ -3,6 +3,7 @@
 import { emailError, normalizeEmail } from '../public/js/validation.js';
 import { isSmtpConfigured } from '../src/mailer.js';
 import { sendTestEmail } from '../src/emails.js';
+import { closeDb } from '../src/db.js';
 
 const to = normalizeEmail(process.argv[2]);
 const lang = process.argv[3] === 'en' ? 'en' : 'ar';
@@ -19,4 +20,5 @@ const ok = await sendTestEmail(to, lang);
 if (!ok) console.log('Sending failed; see the error above.');
 else if (isSmtpConfigured()) console.log(`Sent a test email to ${to}. Check the inbox (and the spam folder).`);
 else console.log('Saved to ./outbox (not sent). Add the Brevo SMTP settings to .env to send for real.');
+await closeDb(); // otherwise the open database keeps the script running
 process.exitCode = ok ? 0 : 1;

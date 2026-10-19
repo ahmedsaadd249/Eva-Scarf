@@ -40,13 +40,18 @@ export const config = {
   uploadsDir: writable('UPLOADS_DIR', 'uploads'),
   outboxDir: writable('OUTBOX_DIR', 'outbox'),
 
+  // Map addresses (OpenStreetMap Nominatim, called from the server). Tests point this at a mock.
+  nominatimUrl: (env.NOMINATIM_URL || 'https://nominatim.openstreetmap.org').replace(/\/$/, ''),
+  geoMinIntervalMs: Number(env.GEO_MIN_INTERVAL_MS || 1000), // Nominatim policy: at most 1 request/second
+
   smtp: {
     host: env.SMTP_HOST || '',
     port: Number(env.SMTP_PORT || 587),
     user: env.SMTP_USER || '',
     pass: env.SMTP_PASS || '',
   },
-  mailFrom: env.MAIL_FROM || 'Eva Scarf <no-reply@evascarf.local>',
+  // A bare address ("name@gmail.com") gets the store name added, so emails arrive from "Eva Scarf".
+  mailFrom: ((from) => (from.includes('<') ? from : `Eva Scarf <${from}>`))((env.MAIL_FROM || 'no-reply@evascarf.local').trim()),
   social: {
     instagram: env.INSTAGRAM_URL || 'https://www.instagram.com/evasc_arf',
     tiktok: env.TIKTOK_URL || 'https://www.tiktok.com/@evascarf2',

@@ -74,6 +74,18 @@
           <div class="flex justify-between gap-4 py-2"><dt class="text-ink-soft"><%= t(row[0]) %></dt><dd class="text-end font-medium"><%= row[1] %></dd></div>
         <% }) %>
       </dl>
+      <% if (order.location_lat != null && order.location_lng != null) { %>
+        <%# The pin the customer confirmed on the profile map, for the courier. %>
+        <div class="mt-3 rounded-xl bg-eva-mist p-3.5">
+          <p class="text-[12px] text-ink-soft"><%= t('admin.map_location') %></p>
+          <% if (order.location_label) { %><p class="mt-0.5 text-[14px] leading-relaxed"><%= order.location_label %></p><% } %>
+          <a href="https://www.google.com/maps?q=<%= order.location_lat %>,<%= order.location_lng %>" target="_blank" rel="noopener noreferrer" data-maps-link
+             class="press mt-2.5 inline-flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-[14px] text-white hover:bg-eva-deep active:bg-ink">
+            <%- include('../partials/icon', { name: 'pin', cls: 'h-4 w-4' }) %><%= t('admin.open_in_maps') %>
+            <%- include('../partials/icon', { name: 'external', cls: 'h-3.5 w-3.5 opacity-70' }) %>
+          </a>
+        </div>
+      <% } %>
     </section>
 
     <section class="rounded-card bg-white p-5 shadow-soft" aria-labelledby="rating-title">

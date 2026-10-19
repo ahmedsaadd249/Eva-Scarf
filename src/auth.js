@@ -4,12 +4,16 @@ import session from 'express-session';
 import { get, run } from './db.js';
 
 const scrypt = promisify(crypto.scrypt);
-const SCRYPT = { N: 16384, r: 8, p: 1 };
+// One of OWASP's recommended scrypt settings (N = 2^15, r = 8, p = 3): as strong as N = 2^17 with
+// p = 1, but 32 MB of memory per hash instead of 128 MB, which matters when several logins run at
+// once on a small server. Older hashes keep their own settings and still verify.
+const SCRYPT = { N: 2 ** 15, r: 8, p: 3 };
+const MAXMEM = 64 * 1024 * 1024;
 const KEYLEN = 64;
 
 export async function hashPassword(password) {
   const salt = crypto.randomBytes(16);
-  const key = await scrypt(password, salt, KEYLEN, SCRYPT);
+  const key = await scrypt(password, salt, KEYLEN, { ...SCRYPT, maxmem: MAXMEM });
   return ['scrypt', SCRYPT.N, SCRYPT.r, SCRYPT.p, salt.toString('base64'), key.toString('base64')].join('$');
 }
 
@@ -18,10 +22,17 @@ const DUMMY_HASH = await hashPassword('timing-equaliser');
 
 export async function verifyPassword(password, stored = DUMMY_HASH) {
   const [alg, N, r, p, salt, hash] = String(stored).split('$');
-  if (alg !== 'scrypt') return false;
+  if (alg !== 'scrypt' || !(128 * N * r <= MAXMEM && +p >= 1 && +p <= 4)) return false;
   const expected = Buffer.from(hash, 'base64');
-  const key = await scrypt(String(password), Buffer.from(salt, 'base64'), expected.length, { N: +N, r: +r, p: +p });
+  if (!expected.length) return false;
+  const key = await scrypt(String(password), Buffer.from(salt, 'base64'), expected.length, { N: +N, r: +r, p: +p, maxmem: MAXMEM });
   return crypto.timingSafeEqual(key, expected);
+}
+
+/** True for a hash made with weaker settings than today's (re-hash it at the next successful login). */
+export function needsRehash(stored) {
+  const [alg, N, r, p] = String(stored).split('$');
+  return alg !== 'scrypt' || +N !== SCRYPT.N || +r !== SCRYPT.r || +p !== SCRYPT.p;
 }
 
 export function randomToken(bytes = 32) {
@@ -128,10 +139,10 @@ export function csrf(req, res, next) {
 }
 
 export function verifyCsrf(req, res, next) {
-  const sent = String(req.body?._csrf || req.get('x-csrf-token') || '');
-  const expected = String(req.session.csrf || '');
-  const ok = sent.length === expected.length && expected.length > 0 &&
-    crypto.timingSafeEqual(Buffer.from(sent), Buffer.from(expected));
+  // Compare bytes, not characters: a token with non-Latin letters must fail cleanly, not crash.
+  const sent = Buffer.from(String(req.body?._csrf || req.get('x-csrf-token') || ''));
+  const expected = Buffer.from(String(req.session.csrf || ''));
+  const ok = sent.length === expected.length && expected.length > 0 && crypto.timingSafeEqual(sent, expected);
   if (ok) return next();
   res.status(403).page('error', { title: res.locals.t('errors.csrf_title'), message: res.locals.t('errors.csrf') });
 }

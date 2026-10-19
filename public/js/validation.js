@@ -74,7 +74,29 @@ export function validateProfile(input = {}) {
   if (!errors.phone_secondary && !errors.phone_primary && values.phone_secondary === values.phone_primary) {
     errors.phone_secondary = 'errors.phone_same';
   }
+  const location = validateLocation(input);
+  Object.assign(values, location.values);
+  if (location.error) errors.location = location.error;
   return { values, errors };
+}
+
+/**
+ * Optional map location of the delivery address: both coordinates (in range) or neither.
+ * Returns { values: { location_lat, location_lng, location_label }, error } with nulls when not given.
+ */
+export function validateLocation(input = {}) {
+  const none = { location_lat: null, location_lng: null, location_label: null };
+  const latText = String(input.location_lat ?? '').trim();
+  const lngText = String(input.location_lng ?? '').trim();
+  if (!latText && !lngText) return { values: none, error: null };
+  const lat = Number(latText);
+  const lng = Number(lngText);
+  const valid = latText !== '' && lngText !== '' && Number.isFinite(lat) && Number.isFinite(lng)
+    && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  if (!valid) return { values: none, error: 'errors.location_invalid' };
+  const label = String(input.location_label ?? '').trim().replace(/\s+/g, ' ').slice(0, 300);
+  const round = (n) => Math.round(n * 1e6) / 1e6; // ~10 cm; more digits mean nothing for a doorstep
+  return { values: { location_lat: round(lat), location_lng: round(lng), location_label: label || null }, error: null };
 }
 
 export function isProfileComplete(user) {

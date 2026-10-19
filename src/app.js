@@ -15,8 +15,10 @@ import cartRoutes from './routes/cart.js';
 import accountRoutes from './routes/account.js';
 import checkoutRoutes from './routes/checkout.js';
 import ratingRoutes from './routes/rating.js';
+import geoRoutes from './routes/geo.js';
 import adminRoutes from './routes/admin.js';
 
+const LEAFLET = 'https://unpkg.com/leaflet@1.9.4/dist/';
 
 export const app = express();
 app.set('view engine', 'ejs');
@@ -28,10 +30,12 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'https://cdn.tailwindcss.com'],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      // Leaflet (map on the profile page): only this exact version's folder on unpkg, loaded with SRI.
+      // Allowing all of unpkg would let an injected tag load any npm package.
+      scriptSrc: ["'self'", 'https://cdn.tailwindcss.com', LEAFLET],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', LEAFLET],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-      imgSrc: ["'self'", 'data:', 'blob:', ...(storageOrigin ? [storageOrigin] : [])],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https://tile.openstreetmap.org', 'https://*.tile.openstreetmap.org', ...(storageOrigin ? [storageOrigin] : [])],
       connectSrc: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'none'"],
@@ -123,6 +127,7 @@ app.use(cartRoutes);
 app.use(accountRoutes);
 app.use(checkoutRoutes);
 app.use(ratingRoutes);
+app.use(geoRoutes);
 app.use('/admin', adminRoutes);
 
 app.use((req, res) => {
@@ -131,7 +136,7 @@ app.use((req, res) => {
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error(err);
+  if (!(err.status < 500)) console.error(err); // client mistakes (too large, bad JSON…) aren't crashes
   if (res.headersSent) return;
   const status = err.status && err.status < 500 ? err.status : 500;
   const t = res.locals.t ?? ((k) => k);

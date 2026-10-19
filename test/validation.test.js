@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  emailError, isProfileComplete, normalizePhone, passwordChecks, passwordError, toLatinDigits, validateProfile,
+  emailError, isProfileComplete, normalizePhone, passwordChecks, passwordError, toLatinDigits, validateLocation, validateProfile,
 } from '../public/js/validation.js';
 
 test('email must be present and well-formed', () => {
@@ -56,6 +56,19 @@ test('phones are validated and the secondary must differ', () => {
   const ok = validateProfile({ ...fullProfile, phone_secondary: '٠١٠١٢٣٤٥٦٧٨' });
   assert.deepEqual(ok.errors, {});
   assert.equal(ok.values.phone_secondary, '01012345678');
+});
+
+test('map location is optional, but both coordinates must be valid', () => {
+  assert.deepEqual(validateLocation({}), { values: { location_lat: null, location_lng: null, location_label: null }, error: null });
+  assert.deepEqual(validateLocation({ location_lat: ' ', location_lng: '' }).values.location_lat, null);
+  const good = validateLocation({ location_lat: '30.05612345678', location_lng: '31.2003', location_label: '  شارع   الأربعين ' });
+  assert.deepEqual(good, { values: { location_lat: 30.056123, location_lng: 31.2003, location_label: 'شارع الأربعين' }, error: null });
+  assert.equal(validateLocation({ location_lat: '30', location_lng: '31', location_label: 'x'.repeat(400) }).values.location_label.length, 300);
+  for (const [lat, lng] of [['30', ''], ['', '31'], ['91', '31'], ['30', '181'], ['abc', '31'], ['Infinity', '31']]) {
+    assert.equal(validateLocation({ location_lat: lat, location_lng: lng }).error, 'errors.location_invalid', `${lat},${lng}`);
+  }
+  assert.equal(validateProfile({ ...fullProfile, location_lat: '999', location_lng: '31' }).errors.location, 'errors.location_invalid');
+  assert.equal(validateProfile({ ...fullProfile, location_lat: '30.1', location_lng: '31.2' }).values.location_lng, 31.2);
 });
 
 test('profile completeness', () => {
