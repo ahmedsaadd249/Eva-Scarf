@@ -11,7 +11,14 @@ try {
 }
 
 export default function handler(req, res) {
-  if (app) return app(req, res);
+  if (app) {
+    // Vercel puts its own res.redirect on every response. It answers 307, which makes browsers
+    // send a submitted form again to the next page, and it doesn't encode the address (a tab in a
+    // "next" link would become an off-site redirect). Remove it so Express's own redirect is used:
+    // 302, encoded, the same as locally and in the tests.
+    if (Object.getOwnPropertyDescriptor(res, 'redirect')?.configurable) delete res.redirect;
+    return app(req, res);
+  }
   console.error('Eva Scarf could not start:', startupError?.message);
   res.statusCode = 500;
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');

@@ -32,8 +32,18 @@ if (process.argv[2] === '--prod-server') {
   Object.assign(process.env, baseEnv, {
     NODE_ENV: 'production', SESSION_SECRET: 'security-test-only-secret', PGLITE_DIR: 'memory://sec-prod', PORT: process.argv[3],
   });
-  const { app } = await import('../src/app.js');
-  app.listen(Number(process.argv[3]), () => console.log('ready'));
+  // Serve through the Vercel entry point, with Vercel's own response helpers added the way Vercel
+  // does (its res.redirect answers 307 and doesn't encode the address), so the checks see what
+  // the live site does.
+  const { default: handler } = await import('../api/index.js');
+  const http = await import('node:http');
+  http.createServer((req, res) => {
+    res.redirect = (statusOrUrl, url) => {
+      const [status, location] = url === undefined ? [307, statusOrUrl] : [statusOrUrl, url];
+      res.writeHead(status, { Location: location }).end();
+    };
+    handler(req, res);
+  }).listen(Number(process.argv[3]), () => console.log('ready'));
 } else {
   await main();
 }
@@ -157,7 +167,7 @@ async function main() {
       assert.match(cookie, /HttpOnly/i);
       assert.match(cookie, /SameSite=Lax/i);
     });
-    await check('production: Secure cookie, HSTS and upgrade-insecure-requests', async () => {
+    await check('production (as on Vercel): Secure cookie, HSTS, upgrade-insecure-requests, safe 302 redirects', async () => {
       const port = PORT + 1;
       const child = spawn(process.execPath, [SELF, '--prod-server', String(port)], { stdio: ['ignore', 'pipe', 'pipe'] });
       try {
@@ -170,6 +180,14 @@ async function main() {
         assert.match(res.headers.get('strict-transport-security') || '', /max-age=\d+/);
         assert.match(res.headers.get('content-security-policy'), /upgrade-insecure-requests/);
         assert.match(res.headers.getSetCookie().find((c) => c.startsWith('eva.sid=')) || '', /;\s*Secure/i);
+        // Through the Vercel entry point: redirects must be 302 (a 307 makes browsers re-send forms)
+        // and must never carry raw control characters (browsers drop them: "/\t/x" → "//x").
+        for (const next of ['/shop', '/\t/evil.example', '/\n/evil.example']) {
+          const r = await fetch(`http://localhost:${port}/lang/ar?next=${encodeURIComponent(next)}`, { headers: { 'X-Forwarded-Proto': 'https' }, redirect: 'manual' });
+          const location = r.headers.get('location') || '';
+          assert.equal(r.status, 302, `redirect status for next=${JSON.stringify(next)}`);
+          assert.ok(!/[\x00-\x20]/.test(location) && new URL(location, 'https://evascarf.test').origin === 'https://evascarf.test', `unsafe Location ${JSON.stringify(location)}`);
+        }
       } finally {
         child.kill();
       }
@@ -352,7 +370,7 @@ async function main() {
     // ------------------------------------------------------------ redirects & files
     section('6. Redirects and files');
     await check('"next" links can only stay on this site (no open redirect)', async () => {
-      const targets = ['//evil.example', 'https://evil.example', '/\\evil.example', '/\t/evil.example', 'javascript:alert(1)'];
+      const targets = ['//evil.example', 'https://evil.example', '/\\evil.example', '/\t/evil.example', '/\n/evil.example', '/ /evil.example', 'javascript:alert(1)'];
       for (const next of targets) {
         const lang = await new Visitor().request(`/lang/en?next=${encodeURIComponent(next)}`);
         const where = new URL(lang.headers.get('location'), BASE);
