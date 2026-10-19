@@ -23,7 +23,8 @@
 
     <div class="flex items-center justify-end gap-0.5 md:gap-2">
       <a href="/lang/<%= lang === 'ar' ? 'en' : 'ar' %>" class="press hidden h-11 items-center rounded-full px-3 text-[14px] text-ink/80 hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush md:inline-flex" lang="<%= lang === 'ar' ? 'en' : 'ar' %>"><%= t('nav.language_switch') %></a>
-      <a href="<%= user ? '/account/profile' : '/account/login' %>" class="press hidden h-11 w-11 place-items-center rounded-full hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush md:grid" aria-label="<%= user ? t('nav.account') : t('nav.login') %>">
+      <%# The store owner's "account" is the dashboard. %>
+      <a href="<%= !user ? '/account/login' : (user.role === 'admin' ? '/admin' : '/account/profile') %>" class="press hidden h-11 w-11 place-items-center rounded-full hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush md:grid" aria-label="<%= !user ? t('nav.login') : (user.role === 'admin' ? t('nav.admin') : t('nav.account')) %>">
         <%- include('icon', { name: 'user', cls: 'h-[22px] w-[22px]' }) %>
       </a>
       <button type="button" data-search-open class="press grid h-11 w-11 place-items-center rounded-full hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush" aria-label="<%= t('nav.search') %>" aria-controls="search-panel" aria-expanded="false">
@@ -58,10 +59,11 @@
     <a href="/shop" class="flex items-center justify-between rounded-xl px-3 py-3.5 text-[17px] hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.shop_all') %><%- include('icon', { name: 'chevron-right', cls: 'h-4 w-4 text-ink-faint', flipRtl: true }) %></a>
     <div class="my-4 h-px bg-line"></div>
     <% if (user) { %>
-      <a href="/account/profile" class="block rounded-xl px-3 py-3 hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.profile') %></a>
-      <a href="/account/orders" class="block rounded-xl px-3 py-3 hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.orders') %></a>
       <% if (user.role === 'admin') { %>
         <a href="/admin" class="block rounded-xl px-3 py-3 font-medium text-eva-deep hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.admin') %></a>
+      <% } else { %>
+        <a href="/account/profile" class="block rounded-xl px-3 py-3 hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.profile') %></a>
+        <a href="/account/orders" class="block rounded-xl px-3 py-3 hover:bg-eva-blush/50 active:bg-eva-blush"><%= t('nav.orders') %></a>
       <% } %>
       <form action="/account/logout" method="post">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">

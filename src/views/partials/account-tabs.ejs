@@ -3,7 +3,6 @@
     { href: '/account/profile', label: t('nav.profile'), on: path === '/account/profile' },
     { href: '/account/orders', label: t('nav.orders'), on: path.startsWith('/account/orders') },
   ];
-  if (user.role === 'admin') atabs.push({ href: '/admin', label: t('nav.admin'), on: false });
 %>
 <div class="flex items-center justify-between gap-3 border-b border-line">
   <nav class="no-scrollbar -mb-px flex gap-1 overflow-x-auto" aria-label="<%= t('nav.account') %>">

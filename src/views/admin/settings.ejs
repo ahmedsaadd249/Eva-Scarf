@@ -13,6 +13,16 @@
     <button class="press flex h-12 items-center justify-center rounded-[10px] bg-ink px-8 text-white hover:bg-eva-deep active:bg-ink disabled:opacity-60"><span class="btn-label"><%= t('admin.save') %></span></button>
   </form>
 
+  <%# The owner's own password (the owner account has no customer profile page). %>
+  <form action="/admin/settings/password" method="post" class="space-y-5 rounded-card bg-white p-5 shadow-soft md:p-6 xl:row-span-2" novalidate data-once aria-labelledby="password-title">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <h2 id="password-title" class="text-[16px] font-medium"><%= t('profile.password_section') %></h2>
+    <%- include('../partials/password-field', { field: { name: 'current_password', label: t('profile.current_password'), autocomplete: 'current-password', error: passwordErrors.current_password } }) %>
+    <%- include('../partials/password-field', { field: { name: 'new_password', label: t('profile.new_password'), error: passwordErrors.new_password, checklist: true } }) %>
+    <%- include('../partials/password-field', { field: { name: 'new_password_confirm', label: t('auth.password_confirm'), error: passwordErrors.new_password_confirm } }) %>
+    <button class="press flex h-12 items-center justify-center rounded-[10px] border border-ink px-7 hover:bg-ink hover:text-white active:bg-eva-deep disabled:opacity-60"><span class="btn-label"><%= t('profile.change_password') %></span></button>
+  </form>
+
   <section class="rounded-card bg-white p-5 shadow-soft md:p-6" aria-labelledby="email-title">
     <h2 id="email-title" class="text-[16px] font-medium"><%= t('admin.email_status') %></h2>
     <% if (smtpReady) { %>

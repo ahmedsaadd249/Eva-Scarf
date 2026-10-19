@@ -8,6 +8,13 @@ import { deliverableZone } from '../zones.js';
 
 const router = Router();
 
+// The store owner's account doesn't place orders (it has no customer profile).
+function noOwnerOrders(req, res, next) {
+  if (req.user?.role !== 'admin') return next();
+  req.flash('info', 'checkout.owner_account');
+  res.redirect('/cart');
+}
+
 async function needsProfile(req, res) {
   if (isProfileComplete(req.user) && (await deliverableZone(req.user.zone_id))) return false;
   // The neighborhood may have been removed or unpriced by the owner since it was saved.
@@ -16,14 +23,14 @@ async function needsProfile(req, res) {
   return true;
 }
 
-router.get('/checkout', requireUser, async (req, res) => {
+router.get('/checkout', requireUser, noOwnerOrders, async (req, res) => {
   if (await needsProfile(req, res)) return;
   const { lines, totals, notices, zone } = await loadCart(req);
   if (!lines.length) return res.redirect('/cart');
   res.page('shop/checkout', { title: res.locals.t('checkout.title'), lines, totals, notices, zone });
 });
 
-router.post('/checkout', requireUser, async (req, res) => {
+router.post('/checkout', requireUser, noOwnerOrders, async (req, res) => {
   if (await needsProfile(req, res)) return;
   try {
     const order = await placeOrder(req, req.body.expected_total);

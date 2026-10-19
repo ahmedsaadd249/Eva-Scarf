@@ -1,8 +1,9 @@
 import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import multer from 'multer';
 import { config } from '../config.js';
 import { all, get, getSetting, run, setSetting, tx } from '../db.js';
-import { requireAdmin, verifyCsrf } from '../auth.js';
+import { endOtherSessions, hashPassword, requireAdmin, verifyCsrf, verifyPassword } from '../auth.js';
 import { sendStatusEmail } from '../emails.js';
 import { isSmtpConfigured } from '../mailer.js';
 import { getOrder, OrderError, setOrderStatus, STATUSES } from '../orders.js';
@@ -10,7 +11,7 @@ import { clampDiscount, finalUnitPrice, piastersToInput, toPiasters } from '../p
 import { getProductById, getProductImages, uniqueSlug } from '../products.js';
 import { getZone, groupByCity, invalidateZones, listZones } from '../zones.js';
 import { deleteImage, newImageName, saveImage } from '../storage.js';
-import { emailError, normalizeEmail } from '../../public/js/validation.js';
+import { emailError, normalizeEmail, passwordError } from '../../public/js/validation.js';
 
 const router = Router();
 router.use(requireAdmin);
@@ -349,11 +350,14 @@ async function settingsLocals(res) {
     smtpReady: isSmtpConfigured(),
     mailFrom: config.mailFrom,
     emailLog: await all('SELECT * FROM email_log ORDER BY id DESC LIMIT 12'),
+    values: { store_email: await getSetting('store_email') },
+    errors: {},
+    passwordErrors: {},
   };
 }
 
 router.get('/settings', async (req, res) => {
-  adminPage(res, 'settings', { ...(await settingsLocals(res)), values: { store_email: await getSetting('store_email') }, errors: {} });
+  adminPage(res, 'settings', await settingsLocals(res));
 });
 
 router.post('/settings', async (req, res) => {
@@ -363,6 +367,32 @@ router.post('/settings', async (req, res) => {
   if (Object.keys(errors).length) return adminPage(res.status(422), 'settings', { ...(await settingsLocals(res)), values, errors });
   await setSetting('store_email', values.store_email);
   req.flash('success', 'admin.settings_saved');
+  res.redirect('/admin/settings');
+});
+
+// The owner's password (the owner account has no customer profile page, so it's changed here).
+// Counts are per server instance, like the sign-in limit.
+const passwordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.AUTH_RATE_LIMIT || 20),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: (req, res) => res.status(429).page('error', { title: res.locals.t('errors.rate_title'), message: res.locals.t('errors.rate') }),
+});
+
+router.post('/settings/password', passwordLimiter, async (req, res) => {
+  const errors = {};
+  const next = String(req.body.new_password ?? '');
+  if (!(await verifyPassword(String(req.body.current_password ?? ''), req.user.password_hash))) errors.current_password = 'errors.password_current';
+  const passErr = passwordError(next);
+  if (passErr) errors.new_password = passErr;
+  if (next !== String(req.body.new_password_confirm ?? '')) errors.new_password_confirm = 'errors.password_mismatch';
+  if (Object.keys(errors).length) {
+    return adminPage(res.status(422), 'settings', { ...(await settingsLocals(res)), passwordErrors: errors });
+  }
+  await run('UPDATE users SET password_hash = ? WHERE id = ?', [await hashPassword(next), req.user.id]);
+  await endOtherSessions(req.user.id, req.sessionID); // signed out everywhere else
+  req.flash('success', 'profile.password_changed');
   res.redirect('/admin/settings');
 });
 

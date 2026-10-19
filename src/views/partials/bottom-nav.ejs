@@ -3,7 +3,10 @@
     { href: '/', icon: 'home', label: t('nav.home'), active: path === '/' },
     { href: '/shop', icon: 'grid', label: t('nav.shop'), active: path === '/shop' || path.startsWith('/product') },
     { href: '/cart', icon: 'bag', label: t('nav.cart'), active: path === '/cart' || path === '/checkout', badge: true },
-    { href: user ? '/account/profile' : '/account/login', icon: 'user', label: t('nav.account'), active: path.startsWith('/account') },
+    // The store owner's "account" is the dashboard.
+    user && user.role === 'admin'
+      ? { href: '/admin', icon: 'user', label: t('nav.admin'), active: false }
+      : { href: user ? '/account/profile' : '/account/login', icon: 'user', label: t('nav.account'), active: path.startsWith('/account') },
   ];
 %>
 <nav class="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 backdrop-blur-md md:hidden" aria-label="<%= t('nav.tabs') %>">

@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { all, get, run } from '../db.js';
 import {
-  endOtherSessions, hashPassword, logIn, logOut, needsRehash, randomToken, requireUser, safeNext, sha256, verifyPassword,
+  accountHome, customersOnly, endOtherSessions, hashPassword, logIn, logOut, needsRehash, randomToken, requireUser, safeNext,
+  sha256, verifyPassword,
 } from '../auth.js';
 import { sendPasswordResetEmail, sendWelcomeEmail } from '../emails.js';
 import { getOrder } from '../orders.js';
@@ -28,11 +29,11 @@ const RESET_TTL_MS = 60 * 60 * 1000;
 const hasErrors = (errors) => Object.keys(errors).length > 0;
 const isUniqueViolation = (err) => err?.code === '23505' || /unique|duplicate/i.test(err?.message ?? '');
 
-router.get('/account', requireUser, (req, res) => res.redirect('/account/profile'));
+router.get('/account', requireUser, (req, res) => res.redirect(accountHome(req.user)));
 
 // ---------- Register ----------
 router.get('/account/register', (req, res) => {
-  if (req.user) return res.redirect('/account/profile');
+  if (req.user) return res.redirect(accountHome(req.user));
   res.page('account/register', { title: res.locals.t('auth.register_title'), values: {}, errors: {}, next: req.query.next });
 });
 
@@ -74,7 +75,7 @@ router.post('/account/register', authLimiter, async (req, res) => {
 
 // ---------- Login / logout ----------
 router.get('/account/login', (req, res) => {
-  if (req.user) return res.redirect(safeNext(req.query.next, '/account/profile'));
+  if (req.user) return res.redirect(safeNext(req.query.next, accountHome(req.user)));
   res.page('account/login', { title: res.locals.t('auth.login_title'), values: {}, errors: {}, next: req.query.next });
 });
 
@@ -116,9 +117,9 @@ async function profilePage(req, res, locals) {
   });
 }
 
-router.get('/account/profile', requireUser, (req, res) => profilePage(req, res, { next: req.query.next }));
+router.get('/account/profile', requireUser, customersOnly, (req, res) => profilePage(req, res, { next: req.query.next }));
 
-router.post('/account/profile', requireUser, async (req, res) => {
+router.post('/account/profile', requireUser, customersOnly, async (req, res) => {
   const { values, errors } = validateProfile(req.body);
   const zone = values.zone_id ? await deliverableZone(values.zone_id) : null;
   if (values.zone_id && !zone) errors.zone_id = 'errors.zone_unavailable';
@@ -137,7 +138,7 @@ router.post('/account/profile', requireUser, async (req, res) => {
   res.redirect(safeNext(req.body.next, '/account/profile'));
 });
 
-router.post('/account/password', requireUser, authLimiter, async (req, res) => {
+router.post('/account/password', requireUser, customersOnly, authLimiter, async (req, res) => {
   const errors = {};
   const next = String(req.body.new_password ?? '');
   if (!(await verifyPassword(String(req.body.current_password ?? ''), req.user.password_hash))) errors.current_password = 'errors.password_current';
@@ -152,7 +153,7 @@ router.post('/account/password', requireUser, authLimiter, async (req, res) => {
 });
 
 // ---------- Orders ----------
-router.get('/account/orders', requireUser, async (req, res) => {
+router.get('/account/orders', requireUser, customersOnly, async (req, res) => {
   const orders = await all(`
     SELECT o.*, (SELECT SUM(qty)::int FROM order_items WHERE order_id = o.id) AS item_count,
            (SELECT image FROM order_items WHERE order_id = o.id ORDER BY id LIMIT 1) AS image,
@@ -163,7 +164,8 @@ router.get('/account/orders', requireUser, async (req, res) => {
 
 router.get('/account/orders/:no', requireUser, async (req, res, next) => {
   const order = await getOrder('no', String(req.params.no));
-  if (!order || (order.user_id !== req.user.id && req.user.role !== 'admin')) return next();
+  if (order && req.user.role === 'admin') return res.redirect(`/admin/orders/${order.id}`); // the owner sees orders in the dashboard
+  if (!order || order.user_id !== req.user.id) return next();
   res.page('account/order', { title: `${res.locals.t('orders.order')} ${order.order_no}`, order, placed: req.query.placed === '1' });
 });
 
@@ -216,7 +218,7 @@ router.post('/account/reset/:token', authLimiter, async (req, res) => {
   await logIn(req, user);
   await endOtherSessions(user.id, req.sessionID); // whoever had the old password is signed out
   req.flash('success', 'auth.reset_done');
-  res.redirect('/account/profile');
+  res.redirect(accountHome(user));
 });
 
 export default router;

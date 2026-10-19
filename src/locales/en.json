@@ -116,7 +116,8 @@
     "error_empty": "Your cart is empty.",
     "error_changed": "Prices or quantities in your cart changed. Review your cart, then confirm again.",
     "error_stock": "There isn't enough stock of {name}. Update your cart and try again.",
-    "choose_zone": "Choose your neighborhood from the list so we can work out delivery."
+    "choose_zone": "Choose your neighborhood from the list so we can work out delivery.",
+    "owner_account": "The store owner's account doesn't place orders. To try a purchase, use a customer account."
   },
   "auth": {
     "register_title": "Create your account",

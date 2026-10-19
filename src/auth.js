@@ -127,6 +127,15 @@ export function requireUser(req, res, next) {
   res.redirect('/account/login?next=' + encodeURIComponent(req.originalUrl));
 }
 
+/** Where "my account" leads: the dashboard for the store owner, the profile for customers. */
+export const accountHome = (user) => (user?.role === 'admin' ? '/admin' : '/account/profile');
+
+/** Customer-only pages (profile, my orders, checkout): the store owner uses the dashboard instead. */
+export function customersOnly(req, res, next) {
+  if (req.user?.role === 'admin') return res.redirect('/admin');
+  next();
+}
+
 export function requireAdmin(req, res, next) {
   if (req.user?.role === 'admin') return next();
   if (!req.user) return res.redirect('/account/login?next=' + encodeURIComponent(req.originalUrl));

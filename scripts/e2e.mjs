@@ -64,6 +64,7 @@ if (!config.admin.email || !config.admin.password) {
 const db = await import('../src/db.js');
 const { seedAdmin, seedCatalog } = await import('../src/seed.js');
 const { app } = await import('../src/app.js');
+const { verifyPassword } = await import('../src/auth.js');
 await seedAdmin();
 await seedCatalog();
 const server = app.listen(Number(PORT));
@@ -523,6 +524,38 @@ try {
   await page.goto(`${BASE}/account/orders/${orderNo}`, { waitUntil: 'networkidle0' });
   assert.ok((await page.$eval('main', (m) => m.innerText)).includes(itemBefore.name_ar), "customer's order page still lists the item");
   ok(`deleting it keeps order ${orderNo} unchanged: name, photo, price and total`);
+
+  section('Owner account: the dashboard only (no customer pages), password in Settings');
+  for (const url of ['/account', '/account/profile', '/account/orders']) {
+    await admin.goto(BASE + url, { waitUntil: 'networkidle0' });
+    assert.equal(new URL(admin.url()).pathname, '/admin', `${url} leads to the dashboard`);
+  }
+  await admin.goto(`${BASE}/account/orders/${orderNo}`, { waitUntil: 'networkidle0' });
+  assert.equal(new URL(admin.url()).pathname, `/admin/orders/${order.id}`, 'an order link opens it in the dashboard');
+  await admin.goto(`${BASE}/`, { waitUntil: 'networkidle0' });
+  assert.ok(await admin.$('header a[href="/admin"]'), 'header account icon goes to the dashboard');
+  assert.equal(await admin.$('a[href="/account/profile"], a[href="/account/orders"]'), null, 'no "my details" / "my orders" links for the owner');
+  ok('the owner\'s "account" is the dashboard: no بياناتي / طلباتي, order links open in the dashboard');
+  await admin.goto(`${BASE}/checkout`, { waitUntil: 'networkidle0' });
+  assert.equal(new URL(admin.url()).pathname, '/cart');
+  assert.ok((await admin.$eval('body', (b) => b.innerText)).includes('حساب صاحب المتجر لا يُستخدم لإتمام الطلبات'));
+  ok('the owner account doesn\'t check out (polite note in the cart)');
+
+  await admin.goto(`${BASE}/admin/settings`, { waitUntil: 'networkidle0' });
+  await fill(admin, { current_password: 'Wrong#Pass123', new_password: 'NewOwner#2026', new_password_confirm: 'NewOwner#2026' });
+  await submit(admin, 'form[action="/admin/settings/password"]');
+  assert.ok(await admin.$('#f-current_password-error'), 'wrong current password refused');
+  await fill(admin, { current_password: config.admin.password, new_password: 'NewOwner#2026', new_password_confirm: 'NewOwner#2026' });
+  await submit(admin, 'form[action="/admin/settings/password"]');
+  assert.equal(new URL(admin.url()).pathname, '/admin/settings');
+  const ownerHash = (await db.get("SELECT password_hash FROM users WHERE role = 'admin'")).password_hash;
+  assert.ok(await verifyPassword('NewOwner#2026', ownerHash), 'new owner password saved');
+  await shot(admin, 'admin-settings-password');
+  // Put the original password back.
+  await fill(admin, { current_password: 'NewOwner#2026', new_password: config.admin.password, new_password_confirm: config.admin.password });
+  await submit(admin, 'form[action="/admin/settings/password"]');
+  assert.ok(await verifyPassword(config.admin.password, (await db.get("SELECT password_hash FROM users WHERE role = 'admin'")).password_hash));
+  ok('the owner changes the password in Dashboard → Settings (the current password is required)');
 
   section('Browser console');
   assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
