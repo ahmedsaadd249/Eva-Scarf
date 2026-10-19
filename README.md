@@ -71,6 +71,8 @@ records) and send from an address on that domain rather than a Gmail address.
 ### 4. Vercel: hosting the site
 1. Sign up at <https://vercel.com> **with your GitHub account**.
 2. **Add New → Project**, pick the `eva-scarf` repository, leave the build settings as they are.
+   (`vercel.json` sets the framework to none on purpose: if Vercel treats the project as "Express", it builds a
+   second copy of the app for the home page that crashes. Every request must go through `api/index.js`.)
 3. Before clicking Deploy, open **Environment Variables** and add:
 
    | Name | Value |

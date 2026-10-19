@@ -10,3 +10,6 @@ Screenshot/
 Collection/
 *.log
 New folder/
+
+# Settings file for uploading to Vercel (has secrets)
+vercel.env
