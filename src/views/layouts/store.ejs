@@ -16,14 +16,14 @@
   <% } else { %>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;1,400;1,500;1,600&display=swap">
   <% } %>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="/js/tw-config.js"></script>
   <% if (locals.pageAssets && locals.pageAssets.leaflet) { %>
   <%# Map library for the profile's location picker (exact version, checked with SRI). %>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
   <% } %>
   <link rel="stylesheet" href="/css/site.css">
+  <%# Built from the templates by Tailwind (npm run build:css); after site.css, as the old CDN script was. %>
+  <link rel="stylesheet" href="/css/tailwind.css">
 </head>
 <body class="min-h-screen bg-paper text-ink antialiased">
   <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[80] focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white"><%= t('nav.skip') %></a>

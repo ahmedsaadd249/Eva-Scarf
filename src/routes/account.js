@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { rateLimit } from 'express-rate-limit';
 import { all, get, run } from '../db.js';
+import { sharedRateLimit } from '../rate-limit.js';
 import {
   accountHome, customersOnly, endOtherSessions, hashPassword, logIn, logOut, needsRehash, randomToken, requireUser, safeNext,
   sha256, verifyPassword,
@@ -14,18 +14,22 @@ import {
 
 const router = Router();
 
-// Note: counts are kept per server instance, so on serverless hosting this is a speed bump, not a hard limit.
-const authLimiter = rateLimit({
+// Sign-in, sign-up and password pages: 20 tries per 15 minutes per visitor, counted in the database
+// so every running copy of the site shares the count.
+const authLimiter = sharedRateLimit('auth', {
   windowMs: 15 * 60 * 1000,
   limit: Number(process.env.AUTH_RATE_LIMIT || 20),
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
   handler: (req, res) => res.status(429).page('error', {
     title: res.locals.t('errors.rate_title'), message: res.locals.t('errors.rate'),
   }),
 });
 
+// Every /account page needs a signed-in user except these, so a page added later is private by default.
+const PUBLIC_ACCOUNT_PAGES = /^\/(login|register|forgot|reset\/[^/]+|logout)\/?$/;
+router.use('/account', (req, res, next) => (PUBLIC_ACCOUNT_PAGES.test(req.path) ? next() : requireUser(req, res, next)));
+
 const RESET_TTL_MS = 60 * 60 * 1000;
+const RESET_COOLDOWN_MS = 10 * 60 * 1000; // at most one reset email per account every 10 minutes
 const hasErrors = (errors) => Object.keys(errors).length > 0;
 const isUniqueViolation = (err) => err?.code === '23505' || /unique|duplicate/i.test(err?.message ?? '');
 
@@ -182,10 +186,16 @@ router.post('/account/forgot', authLimiter, async (req, res) => {
   }
   const user = await get('SELECT * FROM users WHERE email = ?', [email]);
   if (user) {
-    const token = randomToken(32);
-    await run('DELETE FROM password_resets WHERE user_id = ?', [user.id]);
-    await run('INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)', [sha256(token), user.id, Date.now() + RESET_TTL_MS]);
-    sendPasswordResetEmail(user, token);
+    // A link sent in the last 10 minutes still works, so don't send another. This stops anyone from
+    // flooding an inbox (and using up the daily email allowance) with reset requests.
+    const recent = await get('SELECT 1 FROM password_resets WHERE user_id = ? AND used = 0 AND expires_at > ?',
+      [user.id, Date.now() + RESET_TTL_MS - RESET_COOLDOWN_MS]);
+    if (!recent) {
+      const token = randomToken(32);
+      await run('DELETE FROM password_resets WHERE user_id = ?', [user.id]);
+      await run('INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (?, ?, ?)', [sha256(token), user.id, Date.now() + RESET_TTL_MS]);
+      sendPasswordResetEmail(user, token);
+    }
   }
   // Same answer whether or not the account exists.
   res.page('account/forgot', { title: res.locals.t('auth.forgot_title'), values: { email }, errors: {}, sent: true });

@@ -1,5 +1,7 @@
 node_modules/
-.env
+# Every .env file (.env, .env.local from `vercel env pull`, .env.production…), except the example.
+.env*
+!.env.example
 data/
 uploads/*
 !uploads/.gitkeep
@@ -13,3 +15,6 @@ New folder/
 
 # Settings file for uploading to Vercel (has secrets)
 vercel.env
+
+# Built by `npm run build:css` (Vercel builds it on every deploy)
+public/css/tailwind.css

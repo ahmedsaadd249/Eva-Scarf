@@ -7,6 +7,9 @@
   "main": "serve.mjs",
   "scripts": {
     "start": "node serve.mjs",
+    "prestart": "npm run build:css",
+    "build": "npm run build:css",
+    "build:css": "tailwindcss -c tailwind.config.cjs -i src/tailwind.css -o public/css/tailwind.css --minify",
     "db:setup": "node scripts/db-setup.js",
     "migrate:sqlite": "node scripts/migrate-from-sqlite.js",
     "seed": "node src/seed.js",
@@ -15,7 +18,8 @@
     "import-collection": "node scripts/import-collection.js",
     "test-email": "node scripts/test-email.js",
     "test:security": "node scripts/security-test.mjs",
-    "db:copy-local": "node scripts/copy-local-to-supabase.js"
+    "db:copy-local": "node scripts/copy-local-to-supabase.js",
+    "pree2e": "npm run build:css"
   },
   "engines": {
     "node": "22.x"
@@ -33,6 +37,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
-    "puppeteer": "^25.14.0"
+    "puppeteer": "^25.14.0",
+    "tailwindcss": "^3.4.19"
   }
 }

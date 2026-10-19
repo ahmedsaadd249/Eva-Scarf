@@ -1,6 +1,6 @@
 // JSON endpoints for the map picker on the profile page (signed-in customers only).
 import { Router } from 'express';
-import { rateLimit } from 'express-rate-limit';
+import { sharedRateLimit } from '../rate-limit.js';
 import { cleanQuery, GeoError, parseLatLng, reverseGeocode, searchPlaces } from '../geo.js';
 
 const router = Router();
@@ -8,11 +8,9 @@ const router = Router();
 const fail = (res, status, key) => res.status(status).json({ error: res.locals.t(key) });
 
 router.use('/api/geo', (req, res, next) => (req.user ? next() : fail(res, 401, 'geo.error_login')));
-router.use('/api/geo', rateLimit({
+router.use('/api/geo', sharedRateLimit('geo', {
   windowMs: 60 * 1000,
   limit: Number(process.env.GEO_RATE_LIMIT || 30),
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
   handler: (req, res) => fail(res, 429, 'geo.error_rate'),
 }));
 

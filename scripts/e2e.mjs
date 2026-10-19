@@ -55,12 +55,11 @@ Object.assign(process.env, {
   AUTH_RATE_LIMIT: '100',
   NOMINATIM_URL,
   GEO_MIN_INTERVAL_MS: '0',
+  // A made-up owner for the throwaway database: the test never uses the real owner's details from .env.
+  ADMIN_EMAIL: 'owner@evascarf.test',
+  ADMIN_PASSWORD: 'Owner#Pass2026',
 });
 const { config } = await import('../src/config.js');
-if (!config.admin.email || !config.admin.password) {
-  console.error('Set ADMIN_EMAIL and ADMIN_PASSWORD in .env first (the test signs in as the owner).');
-  process.exit(1);
-}
 const db = await import('../src/db.js');
 const { seedAdmin, seedCatalog } = await import('../src/seed.js');
 const { app } = await import('../src/app.js');

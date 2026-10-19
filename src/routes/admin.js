@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { rateLimit } from 'express-rate-limit';
 import multer from 'multer';
 import { config } from '../config.js';
 import { all, get, getSetting, run, setSetting, tx } from '../db.js';
@@ -10,6 +9,7 @@ import { getOrder, OrderError, setOrderStatus, STATUSES } from '../orders.js';
 import { clampDiscount, finalUnitPrice, piastersToInput, toPiasters } from '../pricing.js';
 import { getProductById, getProductImages, uniqueSlug } from '../products.js';
 import { getOffer, invalidateOffers, listOffers, validateOffer } from '../offers.js';
+import { sharedRateLimit } from '../rate-limit.js';
 import { getZone, groupByCity, invalidateZones, listZones } from '../zones.js';
 import { deleteImage, newImageName, saveImage } from '../storage.js';
 import { emailError, normalizeEmail, passwordError } from '../../public/js/validation.js';
@@ -372,12 +372,10 @@ router.post('/settings', async (req, res) => {
 });
 
 // The owner's password (the owner account has no customer profile page, so it's changed here).
-// Counts are per server instance, like the sign-in limit.
-const passwordLimiter = rateLimit({
+// Counted in the database, like the sign-in limit.
+const passwordLimiter = sharedRateLimit('owner-password', {
   windowMs: 15 * 60 * 1000,
   limit: Number(process.env.AUTH_RATE_LIMIT || 20),
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
   handler: (req, res) => res.status(429).page('error', { title: res.locals.t('errors.rate_title'), message: res.locals.t('errors.rate') }),
 });
 

@@ -14,7 +14,7 @@
           <%- include('../partials/password-field', { field: { name: 'password', label: t('auth.password'), error: errors.password, checklist: true } }) %>
           <%- include('../partials/password-field', { field: { name: 'password_confirm', label: t('auth.password_confirm'), error: errors.password_confirm } }) %>
           <button class="press flex h-[52px] w-full items-center justify-center rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60"><span class="btn-label"><%= t('auth.create_account') %></span></button>
-          <p class="text-center text-[13px] text-ink-soft"><%= t('auth.privacy_note') %> <a href="/privacy" class="text-eva-deep underline-offset-4 hover:underline"><%= t('footer.privacy') %></a>.</p>
+          <p class="text-center text-[13px] text-ink-soft"><%= t('auth.privacy_note') %> <a href="/privacy-policy" class="text-eva-deep underline-offset-4 hover:underline"><%= t('footer.privacy') %></a>.</p>
         </form>
         <p class="mt-6 text-center text-[14px] text-ink-soft"><%= t('auth.have_account') %> <a href="/account/login<%= typeof next !== 'undefined' && next ? '?next=' + encodeURIComponent(next) : '' %>" class="font-medium text-eva-deep underline-offset-4 hover:underline"><%= t('auth.login') %></a></p>
       </div>

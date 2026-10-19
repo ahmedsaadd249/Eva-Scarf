@@ -195,6 +195,13 @@ CREATE TABLE IF NOT EXISTS offers (
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS offer_discount integer NOT NULL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS offers jsonb;
 
+-- Rate-limit counters shared by every running copy of the site (src/rate-limit.js).
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key      text PRIMARY KEY,
+  hits     integer NOT NULL,
+  reset_at bigint NOT NULL                          -- epoch milliseconds
+);
+
 -- Supabase exposes the "public" schema through its auto-generated REST API. This store never uses
 -- that API (the server connects directly), so lock every table down: with row level security on and
 -- no policies, the public/anon key can't read or change anything.
@@ -203,7 +210,22 @@ DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY['zones','users','categories','products','product_images','orders','order_items',
                            'order_status_history','ratings','settings','sessions','password_resets','email_log',
-                           'offers'] LOOP
+                           'offers','rate_limits'] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
   END LOOP;
+END $$;
+
+-- A second lock: also take table access away from the roles of Supabase's public API (anon,
+-- authenticated), now and for tables added later, so nothing opens up even if row level security were
+-- ever switched off on a table. Skipped where those roles don't exist (the local and test databases).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
+    REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
+    REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM anon, authenticated;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon, authenticated;
+  END IF;
 END $$;

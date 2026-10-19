@@ -33,7 +33,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       // Leaflet (map on the profile page): only this exact version's folder on unpkg, loaded with SRI.
       // Allowing all of unpkg would let an injected tag load any npm package.
-      scriptSrc: ["'self'", 'https://cdn.tailwindcss.com', LEAFLET],
+      scriptSrc: ["'self'", LEAFLET],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', LEAFLET],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       imgSrc: ["'self'", 'data:', 'blob:', 'https://tile.openstreetmap.org', 'https://*.tile.openstreetmap.org', ...(storageOrigin ? [storageOrigin] : [])],
@@ -46,6 +46,11 @@ app.use(helmet({
   },
   strictTransportSecurity: config.isProd,
 }));
+// Browser features the store may use: only location (the "use my current location" map button).
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=(), usb=()');
+  next();
+});
 
 const staticOpts = { maxAge: config.isProd ? '7d' : 0 };
 app.use(express.static(path.join(ROOT, 'public'), staticOpts));

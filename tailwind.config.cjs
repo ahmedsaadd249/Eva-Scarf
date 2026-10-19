@@ -1,5 +1,9 @@
-// Tailwind Play CDN config: Eva Scarf design tokens. Loaded right after cdn.tailwindcss.com.
-tailwind.config = {
+// Tailwind build settings: `npm run build:css` writes public/css/tailwind.css (Vercel runs it on every
+// deploy). Scans the page templates and the browser scripts for the classes they use. Eva Scarf's
+// design tokens (colours, fonts, shadows, easing) live here.
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ['./src/views/**/*.ejs', './public/js/**/*.js'],
   theme: {
     extend: {
       colors: {

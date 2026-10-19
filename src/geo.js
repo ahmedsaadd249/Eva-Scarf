@@ -7,7 +7,8 @@ import { getSetting } from './db.js';
 const CACHE_TTL_MS = 24 * 3600 * 1000;
 const CACHE_MAX = 2000;
 const cache = new Map();
-let nextSlot = 0; // earliest time the next request to Nominatim may start
+let queue = Promise.resolve(); // requests to Nominatim, one after another
+let lastStart = 0; // when the latest request to Nominatim actually started
 
 export class GeoError extends Error {
   constructor(status, key) {
@@ -38,12 +39,18 @@ async function contact() {
   return storeEmail || /<([^>]+)>/.exec(config.mailFrom)?.[1] || config.mailFrom;
 }
 
-/** Space requests at least geoMinIntervalMs apart across the whole server. */
-async function waitForSlot() {
-  const now = Date.now();
-  const start = Math.max(now, nextSlot);
-  nextSlot = start + config.geoMinIntervalMs;
-  if (start > now) await new Promise((r) => setTimeout(r, start - now));
+/**
+ * Space requests at least geoMinIntervalMs apart across the whole server. Requests queue up and each
+ * one waits for the previous one's actual start, so a late timer can't let two go out too close.
+ */
+function waitForSlot() {
+  const turn = queue.then(async () => {
+    const wait = lastStart + config.geoMinIntervalMs - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastStart = Date.now();
+  });
+  queue = turn.catch(() => {});
+  return turn;
 }
 
 async function nominatim(path, params) {
@@ -114,5 +121,6 @@ export async function searchPlaces(q, lang = 'ar') {
 /** For tests. */
 export function resetGeoCache() {
   cache.clear();
-  nextSlot = 0;
+  queue = Promise.resolve();
+  lastStart = 0;
 }

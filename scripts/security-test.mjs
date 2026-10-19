@@ -161,6 +161,25 @@ async function main() {
       assert.equal(home.headers.get('x-frame-options'), 'SAMEORIGIN');
       assert.equal(home.headers.get('x-powered-by'), null);
     });
+    await check('browser features locked (only location, for the map), robots.txt, sitemap, privacy policy', async () => {
+      assert.equal(home.headers.get('permissions-policy'), 'camera=(), microphone=(), geolocation=(self), payment=(), usb=()');
+      const robots = await new Visitor().request('/robots.txt');
+      assert.equal(robots.status, 200);
+      assert.match(robots.headers.get('content-type'), /text\/plain/);
+      for (const p of ['/admin', '/account', '/checkout', '/api/']) assert.ok(robots.text_.includes(`Disallow: ${p}`), `robots.txt keeps search engines out of ${p}`);
+      assert.match(robots.text_, /Sitemap: http:\/\/localhost:\d+\/sitemap\.xml/);
+      const sitemap = await new Visitor().request('/sitemap.xml');
+      assert.equal(sitemap.status, 200);
+      assert.match(sitemap.text_, /<loc>http:\/\/localhost:\d+\/shop<\/loc>/);
+      assert.match(sitemap.text_, /<loc>http:\/\/localhost:\d+\/product\/karkadeh<\/loc>/);
+      assert.ok(!/\/admin|\/account/.test(sitemap.text_), 'no private pages in the sitemap');
+      assert.equal((await new Visitor().request('/privacy-policy')).status, 200);
+      for (const old of ['/privacy', '/privacy-policy.html']) {
+        const r = await new Visitor().request(old);
+        assert.deepEqual([r.status, r.headers.get('location')], [301, '/privacy-policy'], old);
+      }
+      assert.ok(home.text_.includes('href="/privacy-policy"'), 'linked from every page (footer)');
+    });
     await check('session cookie is HttpOnly and SameSite=Lax', () => {
       const cookie = home.headers.getSetCookie().find((c) => c.startsWith('eva.sid='));
       assert.ok(cookie, 'no session cookie');
@@ -227,7 +246,8 @@ async function main() {
     section('3. Who can see what');
     await check('guests are sent to login for account, checkout and owner pages', async () => {
       const guest = new Visitor();
-      for (const url of ['/account/profile', '/account/orders', `/account/orders/${aliceOrder.order_no}`, '/checkout', '/admin', '/admin/orders', `/admin/orders/${aliceOrder.id}`, '/admin/products']) {
+      for (const url of ['/account/profile', '/account/orders', `/account/orders/${aliceOrder.order_no}`, '/checkout', '/admin', '/admin/orders', `/admin/orders/${aliceOrder.id}`, '/admin/products',
+        '/account/a-page-added-later']) { // any /account page is private unless listed as public
         assert.ok(isLoginRedirect(await guest.request(url)), url);
       }
     });
@@ -302,6 +322,18 @@ async function main() {
       assert.equal(a.status, b.status);
       const body = (r) => r.text_.replace(/alice@example\.com|nobody@example\.com/g, 'EMAIL').replace(/content="[^"]+"|value="[^"]+"/g, '');
       assert.equal(body(a), body(b));
+    });
+    await check('reset emails can\'t be used to flood an inbox (one per account per 10 minutes)', async () => {
+      await waitForEmail('password-reset', 'alice@example.com');
+      const resetEmails = () => fs.readdirSync(baseEnv.OUTBOX_DIR).filter((f) => f.includes('-password-reset-alice@example.com') && f.endsWith('.html')).length;
+      const tokenBefore = (await db.get('SELECT token_hash FROM password_resets WHERE user_id = ?', [aliceUser.id])).token_hash;
+      for (let i = 0; i < 3; i++) {
+        const again = await new Visitor().post('/account/forgot', { email: 'alice@example.com' });
+        assert.equal(again.status, 200, 'same answer as always');
+      }
+      await new Promise((r) => setTimeout(r, 500));
+      assert.equal(resetEmails(), 1, 'only the first request sent an email');
+      assert.equal((await db.get('SELECT token_hash FROM password_resets WHERE user_id = ?', [aliceUser.id])).token_hash, tokenBefore, 'the first link still works');
     });
     await check('a reset link works once, and stored tokens are hashed', async () => {
       const html = await waitForEmail('password-reset', 'alice@example.com');
@@ -403,6 +435,14 @@ async function main() {
       const before = (await db.get('SELECT COUNT(*)::int AS n FROM product_images')).n;
       await owner.request('/admin/products', { method: 'POST', body: form });
       assert.equal((await db.get('SELECT COUNT(*)::int AS n FROM product_images')).n, before, 'HTML file stored');
+      // A web page renamed to .png and labelled image/png is refused too: the first bytes are checked.
+      const disguised = new FormData();
+      disguised.set('_csrf', token);
+      disguised.set('price', '100');
+      disguised.set('stock', '1');
+      disguised.set('images', new Blob(['<html><script>alert(1)</script></html>'], { type: 'image/png' }), 'photo.png');
+      await owner.request('/admin/products', { method: 'POST', body: disguised });
+      assert.equal((await db.get('SELECT COUNT(*)::int AS n FROM product_images')).n, before, 'disguised HTML stored');
       assert.ok(!fs.existsSync(baseEnv.UPLOADS_DIR) || fs.readdirSync(baseEnv.UPLOADS_DIR).every((f) => /\.(jpe?g|png|webp)$/.test(f)));
     });
     await check('very large form posts are refused (413)', async () => {
@@ -442,7 +482,10 @@ async function main() {
         if (res.status === 429) blockedAt = i;
       }
       assert.ok(blockedAt, 'never blocked');
-      console.log(`      (blocked after ${blockedAt} more attempts; limit ${process.env.AUTH_RATE_LIMIT} per 15 minutes in this test, 20 by default)`);
+      // The count lives in the database, so every running copy of the site shares it.
+      const counted = await db.get("SELECT MAX(hits)::int AS n FROM rate_limits WHERE key LIKE 'auth:%'");
+      assert.ok(counted.n >= Number(process.env.AUTH_RATE_LIMIT), `shared count ${counted.n}`);
+      console.log(`      (blocked after ${blockedAt} more attempts; limit ${process.env.AUTH_RATE_LIMIT} per 15 minutes in this test, 20 by default; counted in the database)`);
     });
   } finally {
     console.log(`\n${passed} passed, ${failed} failed`);

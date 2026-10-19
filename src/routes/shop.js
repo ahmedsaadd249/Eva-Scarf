@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { config } from '../config.js';
 import { all } from '../db.js';
 import { getProductImages, getVisibleProductBySlug, listProducts, productName, SORT_KEYS } from '../products.js';
 
@@ -26,9 +27,31 @@ router.get('/shop', async (req, res) => {
   res.page('shop/list', { title, products, sort, search });
 });
 
-// Privacy policy (the owner's text, in the reader's language). The old file name forwards here.
-router.get('/privacy', (req, res) => res.page('shop/privacy', { title: res.locals.t('privacy.title') }));
-router.get('/privacy-policy.html', (req, res) => res.redirect(301, '/privacy'));
+// Privacy policy (the owner's text, in the reader's language). Older addresses forward here.
+router.get('/privacy-policy', (req, res) => res.page('shop/privacy', { title: res.locals.t('privacy.title') }));
+router.get(['/privacy', '/privacy-policy.html'], (req, res) => res.redirect(301, '/privacy-policy'));
+
+// For search engines: what not to index, and the list of public pages (kept up to date with the products).
+router.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send([
+    'User-agent: *',
+    ...['/admin', '/account', '/cart', '/checkout', '/api/', '/rate/', '/lang/'].map((p) => `Disallow: ${p}`),
+    '',
+    `Sitemap: ${config.baseUrl}/sitemap.xml`,
+    '',
+  ].join('\n'));
+});
+
+const xmlEscape = (s) => String(s).replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
+router.get('/sitemap.xml', async (req, res) => {
+  const products = await listProducts({ limit: 1000 });
+  const paths = ['/', '/shop', '/privacy-policy', ...products.map((p) => `/product/${encodeURIComponent(p.slug)}`)];
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${paths.map((p) => `  <url><loc>${xmlEscape(config.baseUrl + p)}</loc></url>`).join('\n')}
+</urlset>
+`);
+});
 
 router.get('/search', (req, res) => {
   const qs = typeof req.query.q === 'string' && req.query.q.trim() ? '?q=' + encodeURIComponent(req.query.q.trim()) : '';

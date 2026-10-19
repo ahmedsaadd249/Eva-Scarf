@@ -109,10 +109,13 @@ local database (an embedded Postgres in `data/pglite`): nothing else to install.
 npm install
 cp .env.example .env      # then edit .env: set ADMIN_EMAIL and ADMIN_PASSWORD
 npm run seed              # creates the owner account (add -- --samples for 14 demo tarhas)
-npm start                 # http://localhost:3000
+npm start                 # builds the styles, then http://localhost:3000
 ```
 
 The owner signs in at `/account/login` and lands on the dashboard at `/admin`.
+The page styles are built from the templates by Tailwind (`npm run build:css` → `public/css/tailwind.css`).
+`npm start` and `npm run e2e` build them first, and Vercel builds them on every deploy; run it yourself
+after changing classes in a template if the server is already running.
 Scripts (`seed`, `import-collection`, `migrate:sqlite`) use the same database as the server; for the
 local database, stop the server first (it can only be open in one program at a time).
 
@@ -155,7 +158,7 @@ configured. Then open **Products → Hidden** to price and publish them. Already
 
 ```bash
 npm test         # unit tests: validation rules, pricing, orders (incl. two customers racing for the last piece), address lookup
-npm run e2e      # full browser run of every workflow (needs ADMIN_EMAIL/ADMIN_PASSWORD in .env)
+npm run e2e      # full browser run of every workflow (uses its own test owner account)
 npm run test:security  # 34 attack checks: CSRF, other people's orders, XSS, SQL injection, open redirects,
                        # password guessing, price tampering, file access, production cookies/HTTPS headers
 ```
