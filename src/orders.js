@@ -41,12 +41,13 @@ export async function placeOrder(req, expectedTotal) {
       INSERT INTO orders (user_id, customer_name, customer_email, phone_primary, phone_secondary,
                           zone_id, city, village, street, building_no, apartment_no,
                           location_lat, location_lng, location_label,
-                          subtotal, discount_total, delivery_fee, total, payment_method, lang)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', ?) RETURNING id`, [
+                          subtotal, discount_total, offer_discount, offers, delivery_fee, total, payment_method, lang)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', ?) RETURNING id`, [
       user.id, user.full_name, user.email, user.phone_primary, user.phone_secondary || null,
       zone.id, zone.city_ar, zone.name_ar, user.street, user.building_no, user.apartment_no,
       user.location_lat ?? null, user.location_lng ?? null, user.location_label ?? null,
-      totals.subtotal, totals.discount_total, totals.delivery_fee, totals.total, req.lang,
+      totals.subtotal, totals.discount_total, totals.offer_discount, totals.offers.length ? JSON.stringify(totals.offers) : null,
+      totals.delivery_fee, totals.total, req.lang,
     ]);
     const orderNo = `EVA-${10000 + order.id}`;
     await t.run('UPDATE orders SET order_no = ? WHERE id = ?', [orderNo, order.id]);

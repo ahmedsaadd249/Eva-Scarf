@@ -6,6 +6,7 @@ process.env.DATABASE_URL = '';
 process.env.PGLITE_DIR = 'memory://orders-test';
 const { closeDb, get, run } = await import('../src/db.js');
 const { placeOrder, setOrderStatus, getOrder, OrderError } = await import('../src/orders.js');
+const { invalidateOffers } = await import('../src/offers.js');
 
 let user;
 let productId;
@@ -92,4 +93,29 @@ test('status changes are recorded; Delivered creates a rating token', async () =
   assert.ok(order.rating_token && order.rating_token.length >= 20);
   assert.deepEqual(order.history.map((h) => h.status), ['processing', 'shipped', 'delivered']);
   await assert.rejects(setOrderStatus(id, 'cancelled'), OrderError);
+});
+
+test('switched-on offers apply at checkout and are recorded on the order', async () => {
+  // The two starting offers exist but are off: free delivery over 1,000 EGP, buy 3 get the 4th free.
+  const seeded = await get("SELECT COUNT(*)::int AS n, SUM(is_active)::int AS on_ FROM offers");
+  assert.deepEqual([seeded.n, seeded.on_], [2, 0]);
+  const { id } = await get("INSERT INTO products (slug, name_ar, name_en, price, stock) VALUES ('offer-t', 'عرض', 'Offer', 30000, 10) RETURNING id");
+  await run('UPDATE offers SET is_active = 1');
+  invalidateOffers();
+  try {
+    // 4 × 300 = 1,200 EGP; one free → 900, under 1,000, so delivery (100) is charged.
+    const order = await placeOrder(req({ [id]: 4 }), 100000);
+    const saved = await getOrder('id', order.id);
+    assert.equal(saved.offer_discount, 30000);
+    assert.equal(saved.delivery_fee, 10000);
+    assert.equal(saved.total, 100000);
+    assert.deepEqual(saved.offers.map((o) => [o.type, o.amount]), [['buy_get', 30000]]);
+    // 5 pieces: 1,500 - 300 = 1,200 ≥ 1,000, so delivery is free too.
+    const second = await getOrder('id', (await placeOrder(req({ [id]: 5 }), 120000)).id);
+    assert.equal(second.delivery_fee, 0);
+    assert.deepEqual(second.offers.map((o) => [o.type, o.amount]), [['buy_get', 30000], ['free_delivery', 10000]]);
+  } finally {
+    await run('UPDATE offers SET is_active = 0');
+    invalidateOffers();
+  }
 });

@@ -232,7 +232,7 @@ async function main() {
       }
     });
     await check("a customer can't open the owner dashboard (403)", async () => {
-      for (const url of ['/admin', '/admin/orders', `/admin/orders/${aliceOrder.id}`, '/admin/products', '/admin/settings', '/admin/delivery']) {
+      for (const url of ['/admin', '/admin/orders', `/admin/orders/${aliceOrder.id}`, '/admin/products', '/admin/settings', '/admin/delivery', '/admin/offers', '/admin/offers/new']) {
         assert.equal((await bob.request(url)).status, 403, url);
       }
       const token = await bob.csrf('/cart');

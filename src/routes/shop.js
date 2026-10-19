@@ -26,6 +26,10 @@ router.get('/shop', async (req, res) => {
   res.page('shop/list', { title, products, sort, search });
 });
 
+// Privacy policy (the owner's text, in the reader's language). The old file name forwards here.
+router.get('/privacy', (req, res) => res.page('shop/privacy', { title: res.locals.t('privacy.title') }));
+router.get('/privacy-policy.html', (req, res) => res.redirect(301, '/privacy'));
+
 router.get('/search', (req, res) => {
   const qs = typeof req.query.q === 'string' && req.query.q.trim() ? '?q=' + encodeURIComponent(req.query.q.trim()) : '';
   res.redirect('/shop' + qs);

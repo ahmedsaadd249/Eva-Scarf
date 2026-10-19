@@ -46,6 +46,23 @@ export function formatDate(value, lang, withTime = true) {
   });
 }
 
+/**
+ * An offer's name in this language: the owner's own name if they wrote one, otherwise one made
+ * from the offer's settings ("Free delivery on orders over EGP 1,000.00", "Buy 3, get 1 free"…).
+ */
+export function offerLabel(offer, lang) {
+  const own = String(offer?.[`name_${lang}`] ?? '').trim();
+  if (own) return own;
+  const amount = formatMoney(offer?.min_subtotal || 0, lang);
+  switch (offer?.type) {
+    case 'free_delivery': return translate(lang, 'offers.name_free_delivery', { amount });
+    case 'buy_get': return translate(lang, 'offers.name_buy_get', { buy: offer.buy_qty, get: offer.get_qty });
+    case 'order_percent':
+      return translate(lang, offer.min_subtotal ? 'offers.name_percent' : 'offers.name_percent_all', { percent: offer.percent, amount });
+    default: return '';
+  }
+}
+
 export function helpersFor(lang) {
   return {
     lang,
@@ -54,6 +71,7 @@ export function helpersFor(lang) {
     L: (obj, field) => localized(obj, field, lang),
     money: (piasters) => formatMoney(piasters, lang),
     formatDate: (value, withTime) => formatDate(value, lang, withTime),
+    offerLabel: (offer) => offerLabel(offer, lang),
   };
 }
 

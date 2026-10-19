@@ -4,11 +4,12 @@ import session from 'express-session';
 import helmet from 'helmet';
 import { config, ROOT } from './config.js';
 import { csrf, DbSessionStore, loadUser, safeNext } from './auth.js';
-import { i18n, LANGS } from './i18n.js';
+import { i18n, LANGS, offerLabel } from './i18n.js';
 import { cartCount } from './cart.js';
 import { getSetting, run } from './db.js';
 import { adminProductLabel, productLabel, productName } from './products.js';
 import { allZones, formatAddress, placeOf } from './zones.js';
+import { activeOffers } from './offers.js';
 import { storageOrigin } from './storage.js';
 import shopRoutes from './routes/shop.js';
 import cartRoutes from './routes/cart.js';
@@ -94,6 +95,8 @@ app.use(async (req, res, next) => {
   res.locals.baseUrl = config.baseUrl;
   res.locals.storeEmail = await getSetting('store_email');
   res.locals.social = config.social;
+  // Switched-on offers, announced in a thin bar at the top of the store.
+  res.locals.offerBanner = (await activeOffers()).map((o) => offerLabel(o, req.lang));
   res.locals.pname = (p) => productName(p, req.lang); // '' for unnamed tarhas
   res.locals.plabel = (p) => productLabel(p, req.lang);
   res.locals.alabel = (p) => adminProductLabel(p, req.lang);

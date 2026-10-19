@@ -93,6 +93,13 @@ body {
 .star-input label:active { transform: scale(.88); }
 .star-input input:focus-visible + label { outline: 2px solid var(--eva-deep); outline-offset: 2px; border-radius: 6px; }
 
+/* Long text pages (privacy policy) */
+.policy h2 { margin: 2rem 0 .5rem; font-size: 1.125rem; font-weight: 600; color: var(--eva-deep); }
+.policy p { margin: .75rem 0; }
+.policy ul { margin: .5rem 0; padding-inline-start: 1.4rem; list-style: disc; }
+.policy li { margin: .25rem 0; }
+.policy a { color: var(--eva-deep); text-decoration: underline; text-underline-offset: 3px; }
+
 /* Password checklist */
 .rule[data-ok="true"] { color: #2F7A55; }
 .rule[data-ok="true"] .rule-dot { background: #2F7A55; border-color: #2F7A55; }

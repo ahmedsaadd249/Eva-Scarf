@@ -28,6 +28,12 @@
 <body class="min-h-screen bg-paper text-ink antialiased">
   <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[80] focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white"><%= t('nav.skip') %></a>
 
+  <%# Switched-on offers (dashboard → Offers). %>
+  <% if (locals.offerBanner && locals.offerBanner.length) { %>
+    <div class="bg-eva-blush px-4 py-2 text-center text-[13px] font-medium leading-relaxed text-eva-deep" data-offer-banner>
+      <%- include('../partials/icon', { name: 'gift', cls: 'me-1 inline-block h-4 w-4 align-[-3px]' }) %><%= locals.offerBanner.join('  ·  ') %>
+    </div>
+  <% } %>
   <%- include('../partials/header') %>
   <%- include('../partials/flash') %>
 

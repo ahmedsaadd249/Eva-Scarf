@@ -143,4 +143,14 @@ export async function setupDatabase(driver) {
       await t.query("INSERT INTO settings (key, value) VALUES ('zones_seeded', '1')");
     });
   }
+  // Two starting offers, switched off until the owner turns them on: free delivery over 1,000 EGP,
+  // and buy 3, get the 4th free.
+  const offersSeeded = await d.query("SELECT 1 FROM settings WHERE key = 'offers_seeded'");
+  if (!offersSeeded.rows.length) {
+    await d.transaction(async (t) => {
+      await t.query("INSERT INTO offers (type, min_subtotal, is_active) VALUES ('free_delivery', 100000, 0)");
+      await t.query("INSERT INTO offers (type, buy_qty, get_qty, is_active) VALUES ('buy_get', 3, 1, 0)");
+      await t.query("INSERT INTO settings (key, value) VALUES ('offers_seeded', '1')");
+    });
+  }
 }

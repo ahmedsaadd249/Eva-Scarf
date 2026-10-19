@@ -1,12 +1,31 @@
+<%#
+  Totals for the cart, checkout and order pages. `totals` is either computeTotals() (cart) or an
+  order row; both carry the offers that applied (`offers`, with what each one saved).
+%>
+<%
+  const appliedOffers = Array.isArray(totals.offers) ? totals.offers : [];
+  const deliveryOffer = appliedOffers.find(function (o) { return o.type === 'free_delivery'; });
+%>
 <dl class="mt-4 space-y-2.5 text-[15px]">
   <div class="flex justify-between gap-4"><dt class="text-ink-soft"><%= t('cart.subtotal') %></dt><dd class="num"><%= money(totals.subtotal) %></dd></div>
   <% if (totals.discount_total) { %>
     <div class="flex justify-between gap-4 text-eva-deep"><dt><%= t('cart.discount') %></dt><dd class="num" dir="<%= dir %>">-<%= money(totals.discount_total) %></dd></div>
   <% } %>
+  <% appliedOffers.forEach(function (o) { if (o.type === 'free_delivery' || !o.amount) return; %>
+    <div class="flex justify-between gap-4 text-eva-deep" data-offer-line="<%= o.type %>">
+      <dt class="flex items-start gap-1.5"><%- include('icon', { name: 'gift', cls: 'mt-0.5 h-4 w-4 shrink-0' }) %><span><%= offerLabel(o) %></span></dt>
+      <dd class="num shrink-0" dir="<%= dir %>">-<%= money(o.amount) %></dd>
+    </div>
+  <% }) %>
   <div class="flex justify-between gap-4">
     <dt class="text-ink-soft"><%= t('cart.delivery') %></dt>
-    <dd class="num <%= totals.delivery_known === false ? 'text-[13px] text-ink-soft' : '' %>"><%= totals.delivery_known === false ? t('cart.delivery_pending') : totals.delivery_fee ? money(totals.delivery_fee) : t('cart.free') %></dd>
+    <dd class="num <%= totals.delivery_known === false ? 'text-[13px] text-ink-soft' : '' %> <%= deliveryOffer ? 'font-medium text-ok' : '' %>"><%= totals.delivery_known === false ? t('cart.delivery_pending') : totals.delivery_fee ? money(totals.delivery_fee) : t('cart.free') %></dd>
   </div>
+  <% if (deliveryOffer) { %>
+    <p class="-mt-1.5 flex items-center gap-1.5 text-[12px] text-ok" data-offer-line="free_delivery"><%- include('icon', { name: 'gift', cls: 'h-3.5 w-3.5 shrink-0' }) %><%= offerLabel(deliveryOffer) %></p>
+  <% } else if (totals.free_delivery_gap) { %>
+    <p class="-mt-1.5 rounded-lg bg-eva-mist px-2.5 py-1.5 text-[12px] text-eva-deep" data-free-delivery-gap="<%= totals.free_delivery_gap %>"><%= t('cart.free_delivery_gap', { amount: money(totals.free_delivery_gap) }) %></p>
+  <% } %>
   <div class="flex items-baseline justify-between gap-4 border-t border-line pt-3.5">
     <dt class="text-[17px] font-medium"><%= t('cart.total') %></dt>
     <dd class="num text-[22px] font-semibold" data-total="<%= totals.total %>"><%= money(totals.total) %></dd>

@@ -1,0 +1,97 @@
+<%
+  const action = offer ? '/admin/offers/' + offer.id : '/admin/offers';
+  const input = 'h-12 w-full rounded-xl border bg-white px-4 text-[16px] outline-none transition-colors hover:border-ink/25 focus:border-eva-deep focus:ring-4 focus:ring-eva/10';
+  const border = function (k) { return errors[k] ? 'border-[#B3203A]' : 'border-line'; };
+  const err = function (k) { return errors[k] ? '<p class="mt-1.5 text-[13px] text-[#B3203A]">' + t(errors[k]) + '</p>' : ''; };
+  const types = ['free_delivery', 'buy_get', 'order_percent'];
+  // The name written for you when the fields are empty: this offer's own, or an example for a new one.
+  const example = offerLabel(offer ? Object.assign({}, offer, { name_ar: '', name_en: '' }) : { type: 'buy_get', buy_qty: 3, get_qty: 1 });
+%>
+<a href="/admin/offers" class="inline-flex items-center gap-1 text-[14px] text-ink-soft hover:text-eva-deep"><%- include('../partials/icon', { name: 'chevron-left', cls: 'h-4 w-4', flipRtl: true }) %><%= t('admin.offers') %></a>
+<h1 class="display mt-2 text-[32px] text-eva md:text-[40px]"><%= offer ? title : t('admin.offer_new') %></h1>
+
+<form action="<%= action %>" method="post" class="mt-6 grid gap-5 xl:grid-cols-[1.4fr_1fr]" novalidate data-once data-offer-form>
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <div class="space-y-5">
+    <fieldset class="rounded-card bg-white p-5 shadow-soft md:p-6">
+      <legend class="sr-only"><%= t('admin.offer_kind') %></legend>
+      <p class="text-[16px] font-medium" aria-hidden="true"><%= t('admin.offer_kind') %></p>
+      <div class="mt-4 space-y-3">
+        <% types.forEach(function (ty) { %>
+          <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-4 transition-colors hover:border-eva-deep/40 has-[:checked]:border-eva-deep has-[:checked]:bg-eva-mist">
+            <input type="radio" name="type" value="<%= ty %>" <%= values.type === ty ? 'checked' : '' %> class="mt-1 h-4 w-4 shrink-0 accent-[#B4186F]" data-offer-type>
+            <span>
+              <span class="block text-[15px] font-medium"><%= t('admin.offer_type_' + ty) %></span>
+              <span class="mt-0.5 block text-[13px] leading-relaxed text-ink-soft"><%= t('admin.offer_type_' + ty + '_hint') %></span>
+            </span>
+          </label>
+        <% }) %>
+      </div>
+      <%- err('type') %>
+    </fieldset>
+
+    <section class="space-y-5 rounded-card bg-white p-5 shadow-soft md:p-6" aria-labelledby="offer-details">
+      <h2 id="offer-details" class="text-[16px] font-medium"><%= t('admin.offer_settings') %></h2>
+      <%# Which fields show depends on the kind of offer (public/js/app.js); without JavaScript all show. %>
+      <div data-offer-fields="free_delivery order_percent">
+        <label for="f-min_subtotal" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.offer_min_subtotal') %></label>
+        <input id="f-min_subtotal" name="min_subtotal" value="<%= values.min_subtotal_input %>" inputmode="decimal" dir="ltr" class="num <%= input %> <%= border('min_subtotal') %>" placeholder="1000">
+        <p class="mt-1.5 text-[13px] text-ink-soft" data-offer-hint="free_delivery"><%= t('admin.offer_min_hint_free') %></p>
+        <p class="mt-1.5 text-[13px] text-ink-soft" data-offer-hint="order_percent"><%= t('admin.offer_min_hint_percent') %></p>
+        <%- err('min_subtotal') %>
+      </div>
+      <div data-offer-fields="buy_get">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="f-buy_qty" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.offer_buy_qty') %></label>
+            <input id="f-buy_qty" name="buy_qty" type="number" min="1" max="20" value="<%= values.buy_qty == null ? '' : values.buy_qty %>" inputmode="numeric" class="num <%= input %> <%= border('buy_qty') %>" placeholder="3">
+            <%- err('buy_qty') %>
+          </div>
+          <div>
+            <label for="f-get_qty" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.offer_get_qty') %></label>
+            <input id="f-get_qty" name="get_qty" type="number" min="1" max="20" value="<%= values.get_qty == null ? '' : values.get_qty %>" inputmode="numeric" class="num <%= input %> <%= border('get_qty') %>" placeholder="1">
+            <%- err('get_qty') %>
+          </div>
+        </div>
+      </div>
+      <div data-offer-fields="order_percent">
+        <label for="f-percent" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.offer_percent') %></label>
+        <input id="f-percent" name="percent" type="number" min="1" max="90" value="<%= values.percent == null ? '' : values.percent %>" inputmode="numeric" class="num <%= input %> <%= border('percent') %>" placeholder="10">
+        <%- err('percent') %>
+      </div>
+    </section>
+  </div>
+
+  <div class="space-y-5">
+    <section class="space-y-4 rounded-card bg-white p-5 shadow-soft md:p-6" aria-labelledby="offer-names">
+      <h2 id="offer-names" class="text-[16px] font-medium"><%= t('admin.offer_names') %></h2>
+      <p class="-mt-2 text-[13px] leading-relaxed text-ink-soft"><%= t('admin.offer_name_hint', { example: example }) %></p>
+      <div>
+        <label for="f-name_ar" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.offer_name_ar') %></label>
+        <input id="f-name_ar" name="name_ar" value="<%= values.name_ar || '' %>" maxlength="80" dir="rtl" class="<%= input %> border-line">
+      </div>
+      <div>
+        <label for="f-name_en" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.offer_name_en') %></label>
+        <input id="f-name_en" name="name_en" value="<%= values.name_en || '' %>" maxlength="80" dir="ltr" class="<%= input %> border-line">
+      </div>
+    </section>
+
+    <section class="rounded-card bg-white p-5 shadow-soft md:p-6" aria-labelledby="offer-status">
+      <h2 id="offer-status" class="text-[16px] font-medium"><%= t('admin.offer_status') %></h2>
+      <label class="mt-3 flex cursor-pointer items-start gap-3">
+        <input type="checkbox" name="is_active" value="1" <%= values.is_active ? 'checked' : '' %> class="mt-1 h-4 w-4 accent-[#B4186F]">
+        <span><span class="block text-[15px] font-medium"><%= t('admin.offer_active') %></span><span class="block text-[13px] text-ink-soft"><%= t('admin.offer_active_hint') %></span></span>
+      </label>
+    </section>
+
+    <button class="press flex h-[52px] w-full items-center justify-center rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60"><span class="btn-label"><%= t('admin.offer_save') %></span></button>
+  </div>
+</form>
+
+<% if (offer) { %>
+  <form action="/admin/offers/<%= offer.id %>/delete" method="post" class="mt-10 border-t border-line pt-6" data-confirm="<%= t('admin.confirm_offer_delete', { name: title }) %>">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <button class="press inline-flex h-11 items-center gap-2 rounded-[10px] border border-[#B3203A]/40 px-5 text-[14px] text-[#B3203A] hover:bg-[#FBE7EA] active:bg-[#F6D3D9]"><%- include('../partials/icon', { name: 'trash', cls: 'h-4 w-4' }) %><%= t('admin.offer_delete') %></button>
+  </form>
+<% } %>

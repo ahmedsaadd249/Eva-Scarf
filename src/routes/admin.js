@@ -9,6 +9,7 @@ import { isSmtpConfigured } from '../mailer.js';
 import { getOrder, OrderError, setOrderStatus, STATUSES } from '../orders.js';
 import { clampDiscount, finalUnitPrice, piastersToInput, toPiasters } from '../pricing.js';
 import { getProductById, getProductImages, uniqueSlug } from '../products.js';
+import { getOffer, invalidateOffers, listOffers, validateOffer } from '../offers.js';
 import { getZone, groupByCity, invalidateZones, listZones } from '../zones.js';
 import { deleteImage, newImageName, saveImage } from '../storage.js';
 import { emailError, normalizeEmail, passwordError } from '../../public/js/validation.js';
@@ -394,6 +395,75 @@ router.post('/settings/password', passwordLimiter, async (req, res) => {
   await endOtherSessions(req.user.id, req.sessionID); // signed out everywhere else
   req.flash('success', 'profile.password_changed');
   res.redirect('/admin/settings');
+});
+
+// ---------- Offers (free delivery over an amount, buy X get Y free, % off the order) ----------
+const offerFormPage = (res, locals) => adminPage(res, 'offer-form', { errors: {}, ...locals });
+// The form shows the minimum in pounds.
+const offerFormValues = (offer) => ({ ...offer, min_subtotal_input: offer.min_subtotal ? piastersToInput(offer.min_subtotal) : '' });
+const offerParams = (v) => [v.type, v.name_ar, v.name_en, v.min_subtotal, v.buy_qty, v.get_qty, v.percent, v.is_active];
+
+router.get('/offers', async (req, res) => {
+  adminPage(res, 'offers', { title: res.locals.t('admin.offers'), offers: await listOffers() });
+});
+
+router.get('/offers/new', (req, res) => {
+  offerFormPage(res, { title: res.locals.t('admin.offer_new'), offer: null, values: { type: 'free_delivery', min_subtotal_input: '', is_active: 0 } });
+});
+
+router.post('/offers', async (req, res) => {
+  const { values, errors } = validateOffer(req.body);
+  if (Object.keys(errors).length) {
+    return offerFormPage(res.status(422), {
+      title: res.locals.t('admin.offer_new'), offer: null, values: { ...values, min_subtotal_input: String(req.body.min_subtotal ?? '') }, errors,
+    });
+  }
+  await run('INSERT INTO offers (type, name_ar, name_en, min_subtotal, buy_qty, get_qty, percent, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', offerParams(values));
+  invalidateOffers();
+  req.flash('success', 'admin.offer_created', { name: res.locals.offerLabel(values) });
+  res.redirect('/admin/offers');
+});
+
+router.get('/offers/:id/edit', async (req, res, next) => {
+  const offer = await getOffer(req.params.id);
+  if (!offer) return next();
+  offerFormPage(res, { title: res.locals.offerLabel(offer), offer, values: offerFormValues(offer) });
+});
+
+router.post('/offers/:id', async (req, res, next) => {
+  const offer = await getOffer(req.params.id);
+  if (!offer) return next();
+  const { values, errors } = validateOffer(req.body);
+  if (Object.keys(errors).length) {
+    return offerFormPage(res.status(422), {
+      title: res.locals.offerLabel(offer), offer, values: { ...values, min_subtotal_input: String(req.body.min_subtotal ?? '') }, errors,
+    });
+  }
+  await run(`UPDATE offers SET type = ?, name_ar = ?, name_en = ?, min_subtotal = ?, buy_qty = ?, get_qty = ?, percent = ?, is_active = ?,
+               updated_at = now() WHERE id = ?`, [...offerParams(values), offer.id]);
+  invalidateOffers();
+  req.flash('success', 'admin.offer_saved', { name: res.locals.offerLabel(values) });
+  res.redirect('/admin/offers');
+});
+
+router.post('/offers/:id/toggle', async (req, res, next) => {
+  const offer = await getOffer(req.params.id);
+  if (!offer) return next();
+  const on = offer.is_active ? 0 : 1;
+  await run('UPDATE offers SET is_active = ?, updated_at = now() WHERE id = ?', [on, offer.id]);
+  invalidateOffers();
+  req.flash('success', on ? 'admin.offer_activated' : 'admin.offer_deactivated', { name: res.locals.offerLabel(offer) });
+  res.redirect('/admin/offers');
+});
+
+/** Past orders keep their own copy of the offers they used, so deleting an offer doesn't change them. */
+router.post('/offers/:id/delete', async (req, res, next) => {
+  const offer = await getOffer(req.params.id);
+  if (!offer) return next();
+  await run('DELETE FROM offers WHERE id = ?', [offer.id]);
+  invalidateOffers();
+  req.flash('success', 'admin.offer_deleted', { name: res.locals.offerLabel(offer) });
+  res.redirect('/admin/offers');
 });
 
 // ---------- Delivery neighborhoods ----------

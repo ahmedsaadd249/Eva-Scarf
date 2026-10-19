@@ -100,7 +100,8 @@
     "notice_reduced_simple": "Only {qty} left, so we updated the quantity.",
     "delivery_pending": "Set by neighborhood",
     "zone_from_profile": "Add your neighborhood in your account to see the delivery fee.",
-    "zone_login": "Sign in to see the delivery fee for your neighborhood."
+    "zone_login": "Sign in to see the delivery fee for your neighborhood.",
+    "free_delivery_gap": "{amount} more for free delivery."
   },
   "checkout": {
     "title": "Checkout",
@@ -152,7 +153,8 @@
     "reset_invalid": "This link is invalid or has expired. Request a new one.",
     "reset_save": "Save password",
     "reset_done": "Your password was changed and you're signed in.",
-    "registered": "Welcome, {name}! Add your address and both phone numbers, then click \"Save details\"."
+    "registered": "Welcome, {name}! Add your address and both phone numbers, then click \"Save details\".",
+    "privacy_note": "By creating an account you agree to our"
   },
   "profile": {
     "title": "My account",
@@ -250,7 +252,12 @@
     "back_home": "Back to home",
     "zone_required": "Choose your neighborhood.",
     "zone_unavailable": "We no longer deliver to that neighborhood. Choose another one.",
-    "location_invalid": "We couldn't read the map location. Move the map and press \"Confirm location\" again."
+    "location_invalid": "We couldn't read the map location. Move the map and press \"Confirm location\" again.",
+    "offer_type": "Choose the kind of offer.",
+    "offer_min_required": "Enter the minimum in EGP, like 1000.",
+    "offer_min_invalid": "That minimum isn’t valid. Examples: 1500 or 1500.50",
+    "offer_qty": "A whole number from 1 to 20.",
+    "offer_percent": "A whole number from 1 to 90."
   },
   "footer": {
     "tagline": "Sudanese tarhas in many different designs.",
@@ -258,7 +265,8 @@
     "help": "Your account",
     "contact": "Contact us",
     "follow": "Follow us",
-    "rights": "© {year} Eva Scarf. All rights reserved."
+    "rights": "© {year} Eva Scarf. All rights reserved.",
+    "privacy": "Privacy policy"
   },
   "email": {
     "footer": "You're receiving this because you have an Eva Scarf account.",
@@ -479,7 +487,45 @@
     "archive_product": "Archive product",
     "archive_hint": "Hides it from the store but keeps it; restore it any time from the Archived tab.",
     "confirm_delete_ordered": "Delete “{name}” permanently? This can’t be undone. Past orders stay as they are, with its name, photo and price.",
-    "product_deleted_ordered": "{name} was deleted. Past orders are unchanged."
+    "product_deleted_ordered": "{name} was deleted. Past orders are unchanged.",
+    "offers": "Offers",
+    "offer_new": "Add offer",
+    "offers_intro": "Offers that are on apply to customers’ carts automatically and show in a bar at the top of the store. Offers that are off change nothing.",
+    "offers_rules": "When several offers are on: product discounts come first, then “buy, get free” (the cheapest pieces are the free ones), then the percentage off the order, then free delivery if the items still cost at least its minimum. Of each kind, the one that saves the customer most applies. Past orders don’t change when you edit offers.",
+    "no_offers": "No offers yet.",
+    "offer_kind": "Kind of offer",
+    "offer_type_free_delivery": "Free delivery",
+    "offer_type_free_delivery_hint": "For orders whose items cost at least a set amount.",
+    "offer_type_buy_get": "Buy some, get some free",
+    "offer_type_buy_get_hint": "For example: buy 3, get the 4th free. The cheapest pieces in the cart are the free ones.",
+    "offer_type_order_percent": "Percentage off the order",
+    "offer_type_order_percent_hint": "A percentage off the items, on every order or above a set amount.",
+    "offer_settings": "Offer details",
+    "offer_min_subtotal": "Minimum for the items (EGP)",
+    "offer_min_hint_free": "Delivery becomes free once the items (after discounts) cost at least this much.",
+    "offer_min_hint_percent": "Leave empty to apply it to every order.",
+    "offer_buy_qty": "Pieces paid for",
+    "offer_get_qty": "Pieces free",
+    "offer_percent": "Discount %",
+    "offer_names": "Offer name (optional)",
+    "offer_name_hint": "Shown to customers. If left empty it’s written for you, like “{example}”.",
+    "offer_name_ar": "Name in Arabic",
+    "offer_name_en": "Name in English",
+    "offer_status": "Status",
+    "offer_active": "On",
+    "offer_active_hint": "Applies to customers’ carts and shows at the top of the store.",
+    "offer_on": "On",
+    "offer_off": "Off",
+    "offer_activate": "Turn on",
+    "offer_deactivate": "Turn off",
+    "offer_save": "Save offer",
+    "offer_delete": "Delete offer",
+    "offer_created": "Offer “{name}” added.",
+    "offer_saved": "Offer “{name}” saved.",
+    "offer_activated": "“{name}” is on; customers see it within seconds.",
+    "offer_deactivated": "“{name}” is off.",
+    "offer_deleted": "Offer “{name}” deleted. Past orders are unchanged.",
+    "confirm_offer_delete": "Delete the offer “{name}” permanently? Past orders don’t change."
   },
   "geo": {
     "title": "Pin your location on the map",
@@ -511,5 +557,14 @@
     "filled": "Filled in {fields} from the map. Check them before saving.",
     "zone_unknown": "We couldn't tell the neighborhood from the map; please choose it from the list.",
     "add_apartment": "Add your apartment number."
+  },
+  "offers": {
+    "name_free_delivery": "Free delivery on orders over {amount}",
+    "name_buy_get": "Buy {buy}, get {get} free",
+    "name_percent": "{percent}% off orders over {amount}",
+    "name_percent_all": "{percent}% off every order"
+  },
+  "privacy": {
+    "title": "Privacy Policy"
   }
 }

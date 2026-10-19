@@ -1,4 +1,5 @@
 import { computeTotals } from './pricing.js';
+import { activeOffers } from './offers.js';
 import { getProductsByIds } from './products.js';
 import { deliverableZone } from './zones.js';
 
@@ -62,7 +63,7 @@ export async function loadCart(req) {
   }
 
   const zone = await cartZone(req);
-  const totals = computeTotals(lines, zone ? zone.fee : null);
+  const totals = computeTotals(lines, zone ? zone.fee : null, await activeOffers());
   return { lines, totals, notices, zone };
 }
 

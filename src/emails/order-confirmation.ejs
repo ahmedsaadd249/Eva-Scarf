@@ -9,7 +9,13 @@
   <% if (order.discount_total) { %>
   <tr><td style="padding:4px 0;color:#B4186F;text-align:<%= align %>;"><%= t('cart.discount') %></td><td align="<%= alignEnd %>" style="padding:4px 0;color:#B4186F;">-<%= money(order.discount_total) %></td></tr>
   <% } %>
+  <% (order.offers || []).forEach(function (o) { if (o.type === 'free_delivery' || !o.amount) return; %>
+  <tr><td style="padding:4px 0;color:#B4186F;text-align:<%= align %>;"><%= offerLabel(o) %></td><td align="<%= alignEnd %>" style="padding:4px 0;color:#B4186F;">-<%= money(o.amount) %></td></tr>
+  <% }) %>
   <tr><td style="padding:4px 0;text-align:<%= align %>;"><%= t('cart.delivery') %></td><td align="<%= alignEnd %>" style="padding:4px 0;"><%= order.delivery_fee ? money(order.delivery_fee) : t('cart.free') %></td></tr>
+  <% (order.offers || []).forEach(function (o) { if (o.type !== 'free_delivery') return; %>
+  <tr><td colspan="2" style="padding:0 0 4px;font-size:12px;color:#2F7A55;text-align:<%= align %>;"><%= offerLabel(o) %></td></tr>
+  <% }) %>
   <tr><td style="padding:10px 0 0;font-size:17px;font-weight:bold;text-align:<%= align %>;"><%= t('cart.total') %></td><td align="<%= alignEnd %>" style="padding:10px 0 0;font-size:17px;font-weight:bold;"><%= money(order.total) %></td></tr>
 </table>
 

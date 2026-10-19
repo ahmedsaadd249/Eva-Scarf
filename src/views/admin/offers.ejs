@@ -1,0 +1,39 @@
+<div class="flex flex-wrap items-end justify-between gap-4">
+  <h1 class="display text-[34px] text-eva md:text-[42px]"><%= t('admin.offers') %></h1>
+  <a href="/admin/offers/new" class="press inline-flex h-11 items-center gap-2 rounded-[10px] bg-ink px-5 text-white shadow-lift hover:bg-eva-deep active:bg-ink"><%- include('../partials/icon', { name: 'plus', cls: 'h-5 w-5' }) %><span><%= t('admin.offer_new') %></span></a>
+</div>
+<p class="mt-2 max-w-2xl text-[14px] leading-relaxed text-ink-soft"><%= t('admin.offers_intro') %></p>
+
+<% if (!offers.length) { %>
+  <p class="mt-6 rounded-card bg-white px-5 py-14 text-center text-ink-soft shadow-soft"><%= t('admin.no_offers') %></p>
+<% } else { %>
+  <ul class="mt-6 space-y-3">
+    <% offers.forEach(function (o) { const name = offerLabel(o); %>
+      <li class="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card bg-white p-4 shadow-soft md:p-5" data-offer="<%= o.id %>">
+        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full <%= o.is_active ? 'bg-eva-blush text-eva-deep' : 'bg-sand text-ink-faint' %>"><%- include('../partials/icon', { name: 'gift', cls: 'h-5 w-5' }) %></span>
+        <div class="min-w-0 flex-1">
+          <a href="/admin/offers/<%= o.id %>/edit" class="block text-[16px] font-medium hover:text-eva-deep"><%= name %></a>
+          <p class="text-[13px] text-ink-soft"><%= t('admin.offer_type_' + o.type) %></p>
+        </div>
+        <span class="shrink-0 rounded-full px-3 py-1 text-[12px] font-medium <%= o.is_active ? 'bg-ok-soft text-ok' : 'bg-sand text-ink-soft' %>" data-offer-status><%= o.is_active ? t('admin.offer_on') : t('admin.offer_off') %></span>
+        <div class="flex w-full items-center justify-end gap-1.5 sm:w-auto">
+          <form action="/admin/offers/<%= o.id %>/toggle" method="post">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <% if (o.is_active) { %>
+              <button class="press h-10 rounded-lg border border-line px-4 text-[14px] hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush"><%= t('admin.offer_deactivate') %></button>
+            <% } else { %>
+              <button class="press h-10 rounded-lg bg-ink px-4 text-[14px] text-white hover:bg-eva-deep active:bg-ink"><%= t('admin.offer_activate') %></button>
+            <% } %>
+          </form>
+          <a href="/admin/offers/<%= o.id %>/edit" class="press grid h-10 w-10 place-items-center rounded-lg border border-line hover:border-eva-deep hover:text-eva-deep active:bg-eva-blush" aria-label="<%= t('admin.edit_named', { name: name }) %>"><%- include('../partials/icon', { name: 'edit', cls: 'h-[18px] w-[18px]' }) %></a>
+          <form action="/admin/offers/<%= o.id %>/delete" method="post" data-confirm="<%= t('admin.confirm_offer_delete', { name: name }) %>">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="press grid h-10 w-10 place-items-center rounded-lg border border-line text-ink-soft hover:border-[#B3203A] hover:text-[#B3203A] active:bg-[#FBE7EA]" aria-label="<%= t('admin.delete_named', { name: name }) %>"><%- include('../partials/icon', { name: 'trash', cls: 'h-[18px] w-[18px]' }) %></button>
+          </form>
+        </div>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>
+
+<p class="mt-6 flex max-w-3xl items-start gap-2 rounded-card bg-eva-mist px-4 py-3 text-[13px] leading-relaxed text-ink-soft"><%- include('../partials/icon', { name: 'info', cls: 'mt-0.5 h-4 w-4 shrink-0 text-eva-deep' }) %><span><%= t('admin.offers_rules') %></span></p>

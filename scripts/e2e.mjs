@@ -525,6 +525,100 @@ try {
   assert.ok((await page.$eval('main', (m) => m.innerText)).includes(itemBefore.name_ar), "customer's order page still lists the item");
   ok(`deleting it keeps order ${orderNo} unchanged: name, photo, price and total`);
 
+  section('Owner: offers (free delivery over an amount, buy 3 get the 4th free, % off)');
+  const { finalUnitPrice } = await import('../src/pricing.js');
+  await admin.goto(`${BASE}/admin/offers`, { waitUntil: 'networkidle0' });
+  const listed = await admin.$$eval('[data-offer]', (els) => els.map((el) => ({ id: el.dataset.offer, status: el.querySelector('[data-offer-status]').textContent.trim() })));
+  assert.equal(listed.length, 2, 'two starting offers');
+  assert.ok(listed.every((o) => o.status === 'موقوف'), 'both switched off');
+  const seededOffers = await db.all('SELECT * FROM offers ORDER BY id');
+  const freeDeliveryOffer = seededOffers.find((o) => o.type === 'free_delivery');
+  const buyGetOffer = seededOffers.find((o) => o.type === 'buy_get');
+  assert.deepEqual([freeDeliveryOffer.min_subtotal, buyGetOffer.buy_qty, buyGetOffer.get_qty], [100000, 3, 1]);
+  ok('the two starting offers are listed and switched off (free delivery over 1,000 EGP, buy 3 get 1)');
+  await shot(admin, 'admin-offers');
+
+  // Customer: 4 pieces of one tarha. While the offers are off, nothing changes.
+  const cheap = await db.get('SELECT * FROM products WHERE is_active = 1 AND is_archived = 0 AND stock >= 4 ORDER BY price, id LIMIT 1');
+  const unit = finalUnitPrice(cheap.price, cheap.discount_percent);
+  const dokkiFee = (await db.get("SELECT fee FROM zones WHERE name_en = 'Dokki'")).fee;
+  await page.goto(`${BASE}/cart`, { waitUntil: 'networkidle0' });
+  await page.evaluate(async (id) => {
+    const headers = { 'x-csrf-token': document.querySelector('meta[name=csrf-token]').content, Accept: 'application/json' };
+    for (const line of document.querySelectorAll('input[name=product_id]')) {
+      await fetch('/cart/remove', { method: 'POST', headers, body: new URLSearchParams({ product_id: line.value }) });
+    }
+    await fetch('/cart/add', { method: 'POST', headers, body: new URLSearchParams({ product_id: id, qty: '4' }) });
+  }, String(cheap.id));
+  const cartTotal = async () => {
+    await page.goto(`${BASE}/cart`, { waitUntil: 'networkidle0' });
+    return Number(await page.$eval('[data-total]', (el) => el.dataset.total));
+  };
+  assert.equal(await cartTotal(), unit * 4 + dokkiFee);
+  assert.equal(await page.$('[data-offer-banner]'), null, 'no offer banner while offers are off');
+  ok('offers that are off change nothing');
+
+  // Owner switches on "buy 3, get 1 free".
+  await admin.goto(`${BASE}/admin/offers`, { waitUntil: 'networkidle0' });
+  await submit(admin, `form[action="/admin/offers/${buyGetOffer.id}/toggle"]`);
+  assert.equal((await db.get('SELECT is_active FROM offers WHERE id = ?', [buyGetOffer.id])).is_active, 1);
+  assert.equal(await cartTotal(), unit * 3 + dokkiFee, 'one of four is free');
+  assert.ok(await page.$('[data-offer-line="buy_get"]'), 'offer line in the cart');
+  assert.match(await page.$eval('[data-offer-banner]', (el) => el.textContent), /اشتري.*3.*واحصلي على.*1.*مجانًا/);
+  ok(`"buy 3, get 1 free" on: the cart takes ${unit / 100} EGP off and the store shows a banner`);
+
+  // And free delivery over 1,000 EGP.
+  await submit(admin, `form[action="/admin/offers/${freeDeliveryOffer.id}/toggle"]`);
+  const itemsAfterOffers = unit * 3;
+  const freeDelivery = itemsAfterOffers >= 100000;
+  assert.equal(await cartTotal(), itemsAfterOffers + (freeDelivery ? 0 : dokkiFee));
+  if (freeDelivery) assert.ok(await page.$('[data-offer-line="free_delivery"]'), 'free delivery shown');
+  else assert.equal(Number(await page.$eval('[data-free-delivery-gap]', (el) => el.dataset.freeDeliveryGap)), 100000 - itemsAfterOffers);
+  await shot(page, 'cart-offers');
+  ok(freeDelivery ? 'free delivery over 1,000 EGP applies to this cart' : 'free delivery: the cart says how much more is needed');
+
+  // Checkout: the order keeps what each offer saved, and shows it.
+  const tOffers = Date.now();
+  await page.goto(`${BASE}/checkout`, { waitUntil: 'networkidle0' });
+  await submit(page, 'form[action="/checkout"]');
+  const offerOrderNo = /orders\/(EVA-\d+)/.exec(page.url())?.[1];
+  assert.ok(offerOrderNo, 'order placed');
+  const offerOrder = await db.get('SELECT * FROM orders WHERE order_no = ?', [offerOrderNo]);
+  assert.equal(offerOrder.offer_discount, unit);
+  assert.equal(offerOrder.delivery_fee, freeDelivery ? 0 : dokkiFee);
+  assert.deepEqual(offerOrder.offers.map((o) => o.type), freeDelivery ? ['buy_get', 'free_delivery'] : ['buy_get']);
+  assert.ok(await page.$('[data-offer-line="buy_get"]'), 'the customer order page shows the offer');
+  const offerEmail = await waitForEmail('order-confirmation', email, tOffers);
+  assert.match(offerEmail.html, /اشتري.*3.*واحصلي على.*1.*مجانًا/);
+  ok(`order ${offerOrderNo} records the offers (saved ${(unit + (freeDelivery ? dokkiFee : 0)) / 100} EGP); the order page and email show them`);
+
+  // Owner adds an offer with the form (like adding a product), then deletes it.
+  await admin.goto(`${BASE}/admin/offers/new`, { waitUntil: 'networkidle0' });
+  await admin.click('input[name="type"][value="order_percent"]');
+  assert.equal(await admin.$eval('[data-offer-fields="buy_get"]', (el) => el.hidden), true, 'only the fields for this kind show');
+  await fill(admin, { percent: '95' });
+  await submit(admin, 'form[data-offer-form]');
+  assert.ok((await admin.$eval('main', (m) => m.innerText)).includes('نسبة صحيحة من 1 إلى 90'), '95% refused');
+  await admin.click('input[name="type"][value="order_percent"]');
+  await fill(admin, { percent: '10', min_subtotal: '' });
+  await shot(admin, 'admin-offer-form');
+  await submit(admin, 'form[data-offer-form]');
+  const added = await db.get("SELECT * FROM offers WHERE type = 'order_percent'");
+  assert.ok(added && added.percent === 10 && added.min_subtotal === 0 && added.is_active === 0, 'new offer saved, switched off');
+  assert.equal((await admin.$$('[data-offer]')).length, 3);
+  await submit(admin, `form[action="/admin/offers/${added.id}/delete"]`);
+  assert.equal(await db.get('SELECT 1 FROM offers WHERE id = ?', [added.id]), null);
+  ok('the owner adds an offer with the form (10% off every order) and deletes it');
+
+  // Back to how the store should be: both starting offers off.
+  await submit(admin, `form[action="/admin/offers/${buyGetOffer.id}/toggle"]`);
+  await submit(admin, `form[action="/admin/offers/${freeDeliveryOffer.id}/toggle"]`);
+  assert.equal((await db.get('SELECT SUM(is_active)::int AS n FROM offers')).n, 0);
+  await page.goto(`${BASE}/`, { waitUntil: 'networkidle0' });
+  assert.equal(await page.$('[data-offer-banner]'), null);
+  assert.equal((await db.get('SELECT offers FROM orders WHERE order_no = ?', [offerOrderNo])).offers.length, freeDelivery ? 2 : 1, 'the past order keeps its offers');
+  ok('offers switched off again: the banner goes, and the past order keeps its offers');
+
   section('Owner account: the dashboard only (no customer pages), password in Settings');
   for (const url of ['/account', '/account/profile', '/account/orders']) {
     await admin.goto(BASE + url, { waitUntil: 'networkidle0' });
