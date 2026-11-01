@@ -22,6 +22,17 @@ const authLimiter = sharedRateLimit('auth', {
   }),
 });
 
+// The owner's password: also at most 10 tries an hour for one email, wherever they come from, so guesses
+// spread over many addresses still add up.
+const ownerLoginLimiter = sharedRateLimit('owner-login', {
+  windowMs: 60 * 60 * 1000,
+  limit: Number(process.env.OWNER_LOGIN_LIMIT || 10),
+  keyGenerator: (req) => normalizeEmail(req.body.email).slice(0, 254) || 'none',
+  handler: (req, res) => res.status(429).page('error', {
+    title: res.locals.t('errors.rate_title'), message: res.locals.t('errors.rate'),
+  }),
+});
+
 // Every /account page needs a signed-in user except these, so a page added later is private by default.
 const PUBLIC_ACCOUNT_PAGES = /^\/(login|code\/(send|verify|change)|register|forgot|reset\/[^/]+|logout)\/?$/;
 router.use('/account', (req, res, next) => (PUBLIC_ACCOUNT_PAGES.test(req.path) ? next() : requireUser(req, res, next)));
@@ -100,7 +111,7 @@ router.get('/admin/login', (req, res) => {
   res.page('account/owner-login', { title: res.locals.t('owner_login.title'), values: {}, errors: {}, next: safeNext(req.query.next, '') });
 });
 
-router.post('/admin/login', authLimiter, async (req, res) => {
+router.post('/admin/login', authLimiter, ownerLoginLimiter, async (req, res) => {
   const email = normalizeEmail(req.body.email);
   const user = email ? await get("SELECT * FROM users WHERE email = ? AND role = 'admin'", [email]) : null;
   const ok = await verifyPassword(String(req.body.password ?? ''), user?.password_hash ?? undefined);

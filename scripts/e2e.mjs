@@ -341,13 +341,16 @@ try {
   await admin.setViewport({ width: 1366, height: 900 });
   await admin.goto(`${BASE}/admin`, { waitUntil: 'networkidle0' });
   assert.equal(new URL(admin.url()).pathname, '/admin/login', 'the dashboard sends guests to the owner sign-in');
-  const ownerCode = await admin.evaluate(async (ownerEmail) => {
+  const ownerCodeFiles = () => (fs.existsSync(config.outboxDir) ? fs.readdirSync(config.outboxDir) : []).filter((f) => f.includes(`-login-code-${config.admin.email}`)).length;
+  const looksNormal = await admin.evaluate(async (ownerEmail) => {
     const body = new URLSearchParams({ _csrf: document.querySelector('meta[name="csrf-token"]').content, email: ownerEmail, back: '/account/login' });
     const page = await (await fetch('/account/code/send', { method: 'POST', body })).text(); // follows back to the sign-in page
-    return page.includes('بريد صاحب المتجر') && !page.includes('data-code-input');
+    return page.includes('data-code-input'); // the same "type the code" step as for anyone
   }, config.admin.email);
-  assert.ok(ownerCode, 'the owner email gets no sign-in code');
-  ok('the owner email never gets a code: the dashboard has its own password sign-in (/admin/login)');
+  await sleep(500);
+  assert.ok(looksNormal, 'the code form answers as for any email (it does not reveal the owner email)');
+  assert.equal(ownerCodeFiles(), 0, 'no code is emailed to the owner');
+  ok('the owner email gets the usual answer but never a code: the dashboard has its own password sign-in (/admin/login)');
   await fill(admin, { email: config.admin.email, password: 'Wrong#Pass123' });
   await submit(admin, 'form[action="/admin/login"]');
   assert.ok(await admin.$('[role="alert"]'), 'wrong-details message');

@@ -88,11 +88,11 @@ test('no second code within a minute; after that a new code replaces the old one
   assert.ok((await verifyLoginCode('again@example.com', second)).user);
 });
 
-test("bad emails and the owner's email get no code", async () => {
+test("bad emails are refused; the owner's email gets the usual answer but no code", async () => {
   assert.deepEqual(await sendLoginCode('no-at-sign', 'ar'), { error: 'errors.email_invalid' });
   assert.deepEqual(await sendLoginCode('', 'ar'), { error: 'errors.required' });
   await run("INSERT INTO users (email, password_hash, full_name, role) VALUES ('boss@example.com', 'x', 'Boss', 'admin')");
-  assert.deepEqual(await sendLoginCode('boss@example.com', 'ar'), { error: 'code.owner_email' });
+  assert.deepEqual(await sendLoginCode('boss@example.com', 'ar'), { email: 'boss@example.com' }, 'same answer as anyone else');
   assert.equal(await get("SELECT 1 FROM login_codes WHERE email = 'boss@example.com'"), null);
 });
 

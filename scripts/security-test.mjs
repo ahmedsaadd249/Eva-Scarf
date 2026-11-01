@@ -52,7 +52,7 @@ async function main() {
   const PORT = Number(process.env.SEC_PORT || 3201);
   Object.assign(process.env, baseEnv, {
     NODE_ENV: 'development', PGLITE_DIR: 'memory://sec', PORT: String(PORT), BASE_URL: `http://localhost:${PORT}`,
-    AUTH_RATE_LIMIT: '100', GEO_RATE_LIMIT: '5',
+    AUTH_RATE_LIMIT: '100', OWNER_LOGIN_LIMIT: '30', GEO_RATE_LIMIT: '5',
   });
   const db = await import('../src/db.js');
   const { seedAdmin, seedCatalog } = await import('../src/seed.js');
@@ -412,10 +412,15 @@ async function main() {
       await db.run("INSERT INTO users (email, full_name) VALUES ('dave@example.com', 'Dave')"); // a customer who has ordered before
       assert.equal(await page('dave@example.com'), await page('brand-new@example.com'));
     });
-    await check("the owner's email never gets a code and can't sign in with one", async () => {
+    await check("the owner's email gets the usual answer but never a code (the form doesn't reveal it)", async () => {
       const v = new Visitor();
       const before = codeEmails(ADMIN.email);
       await v.sendCode(ADMIN.email);
+      const ownerPage = (await v.request('/account/login')).text_.split(ADMIN.email).join('EMAIL').replace(/content="[^"]+"|value="[^"]+"/g, '');
+      const other = new Visitor();
+      await other.sendCode('someone-new@example.com');
+      const otherPage = (await other.request('/account/login')).text_.split('someone-new@example.com').join('EMAIL').replace(/content="[^"]+"|value="[^"]+"/g, '');
+      assert.equal(ownerPage, otherPage, 'different answer for the owner email');
       await new Promise((r) => setTimeout(r, 300));
       assert.equal(codeEmails(ADMIN.email), before, 'a code was emailed to the owner');
       assert.equal(await db.get('SELECT 1 FROM login_codes WHERE email = ?', [ADMIN.email]), null);
@@ -564,10 +569,22 @@ async function main() {
 
     // ------------------------------------------------------------ brute force (last: it blocks this IP)
     section('8. Guessing codes and the owner password');
-    await check('repeated sign-in attempts are slowed down (429)', async () => {
+    await check("guessing the owner's password is cut off per account, whatever the address (429)", async () => {
+      let blockedAt = 0;
+      for (let i = 1; i <= 40 && !blockedAt; i++) {
+        const res = await new Visitor().ownerLogin(ADMIN.email, `Guess#${i}aaaa`);
+        if (res.status === 429) blockedAt = i;
+      }
+      assert.ok(blockedAt, 'never blocked');
+      const counted = await db.get('SELECT hits FROM rate_limits WHERE key = ?', [`owner-login:${ADMIN.email}`]);
+      assert.ok(counted?.hits >= Number(process.env.OWNER_LOGIN_LIMIT), `per-account count ${counted?.hits}`);
+      assert.equal((await new Visitor().ownerLogin(ADMIN.email, ADMIN.password)).status, 429, 'even the right password waits');
+      console.log(`      (blocked after ${blockedAt} more attempts; ${process.env.OWNER_LOGIN_LIMIT} per hour for one email in this test, 10 by default)`);
+    });
+    await check('repeated sign-in attempts from one visitor are slowed down (429)', async () => {
       let blockedAt = 0;
       for (let i = 1; i <= 130 && !blockedAt; i++) {
-        const res = await new Visitor().ownerLogin(ADMIN.email, `Guess#${i}aaaa`);
+        const res = await new Visitor().ownerLogin(`guess${i}@example.com`, `Guess#${i}aaaa`);
         if (res.status === 429) blockedAt = i;
       }
       assert.ok(blockedAt, 'never blocked');

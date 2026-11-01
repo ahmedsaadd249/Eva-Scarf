@@ -31,7 +31,9 @@ export async function sendLoginCode(rawEmail, lang) {
   const error = emailError(email);
   if (error) return { error };
   const user = await get('SELECT id, role, lang FROM users WHERE email = ?', [email]);
-  if (user?.role === 'admin') return { error: 'code.owner_email' };
+  // The owner signs in at /admin/login. Answer as for anyone else (so the form doesn't reveal which email
+  // is the owner's), but send no code.
+  if (user?.role === 'admin') return { email };
 
   const recent = await get('SELECT 1 FROM login_codes WHERE email = ? AND used = 0 AND expires_at > ?',
     [email, Date.now() + CODE_TTL_MS - RESEND_AFTER_MS]);

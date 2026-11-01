@@ -18,3 +18,6 @@ vercel.env
 
 # Built by `npm run build:css` (Vercel builds it on every deploy)
 public/css/tailwind.css
+
+# Security audit reports (they describe weak spots; keep them off GitHub)
+security-audit-*.md
