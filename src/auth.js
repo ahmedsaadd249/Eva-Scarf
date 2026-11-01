@@ -138,7 +138,7 @@ export function customersOnly(req, res, next) {
 
 export function requireAdmin(req, res, next) {
   if (req.user?.role === 'admin') return next();
-  if (!req.user) return res.redirect('/account/login?next=' + encodeURIComponent(req.originalUrl));
+  if (!req.user) return res.redirect('/admin/login?next=' + encodeURIComponent(req.originalUrl));
   res.status(403).page('error', { title: res.locals.t('errors.forbidden_title'), message: res.locals.t('errors.forbidden') });
 }
 

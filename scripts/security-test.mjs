@@ -52,7 +52,7 @@ async function main() {
   const PORT = Number(process.env.SEC_PORT || 3201);
   Object.assign(process.env, baseEnv, {
     NODE_ENV: 'development', PGLITE_DIR: 'memory://sec', PORT: String(PORT), BASE_URL: `http://localhost:${PORT}`,
-    AUTH_RATE_LIMIT: '60', GEO_RATE_LIMIT: '5',
+    AUTH_RATE_LIMIT: '100', GEO_RATE_LIMIT: '5',
   });
   const db = await import('../src/db.js');
   const { seedAdmin, seedCatalog } = await import('../src/seed.js');
@@ -106,13 +106,41 @@ async function main() {
     async post(url, form) {
       return this.request(url, { method: 'POST', form: { _csrf: await this.csrf(), ...form } });
     }
-    async login(email, password) {
-      return this.post('/account/login', { email, password });
+    /** Ask for a sign-in code for `email` (customers have no password). */
+    async sendCode(email) {
+      return this.post('/account/code/send', { email, back: '/account/login' });
+    }
+    async verifyCode(code, extra = {}) {
+      return this.post('/account/code/verify', { code, back: '/account/login', ...extra });
+    }
+    /** Sign in like a customer: ask for a code, read it from the email, type it. */
+    async codeLogin(email, extra = {}) {
+      const since = Date.now();
+      await this.sendCode(email);
+      return this.verifyCode(await latestCode(email, since), extra);
+    }
+    async ownerLogin(email, password, extra = {}) {
+      return this.post('/admin/login', { email, password, ...extra });
     }
   }
+  /** The newest sign-in code emailed to `email` since `since`, read from the test outbox. */
+  const latestCode = async (email, since = 0) => {
+    for (let i = 0; i < 50; i++) {
+      const dir = baseEnv.OUTBOX_DIR;
+      const file = (fs.existsSync(dir) ? fs.readdirSync(dir) : [])
+        .filter((f) => f.endsWith(`-login-code-${email}.html`) && fs.statSync(path.join(dir, f)).mtimeMs >= since - 1000)
+        .sort().pop();
+      if (file) return /letter-spacing:10px[^>]*>(\d{6})</.exec(fs.readFileSync(path.join(dir, file), 'utf8'))[1];
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error(`no code emailed to ${email}`);
+  };
+  const codeEmails = (email) => (fs.existsSync(baseEnv.OUTBOX_DIR) ? fs.readdirSync(baseEnv.OUTBOX_DIR) : [])
+    .filter((f) => f.endsWith(`-login-code-${email}.html`)).length;
   const register = async (v, email, name = 'Test Customer') => {
-    const res = await v.post('/account/register', { full_name: name, email, password: 'Tarha#2026x', password_confirm: 'Tarha#2026x' });
-    assert.equal(res.status, 302, `registration of ${email} failed (${res.status})`);
+    const res = await v.codeLogin(email);
+    assert.equal(res.status, 302, `sign-in of ${email} failed (${res.status})`);
+    await db.run('UPDATE users SET full_name = ? WHERE email = ?', [name, email]);
     return db.get('SELECT * FROM users WHERE email = ?', [email]);
   };
   /** The cart stored in a visitor's session (the cookie is "s:<id>.<signature>"). */
@@ -121,7 +149,7 @@ async function main() {
     const { sess } = await db.get('SELECT sess FROM sessions WHERE sid = ?', [sid]);
     return (typeof sess === 'string' ? JSON.parse(sess) : sess).cart || {};
   };
-  const isLoginRedirect = (res) => res.status === 302 && res.headers.get('location').startsWith('/account/login');
+  const isLoginRedirect = (res) => res.status === 302 && /^\/(account|admin)\/login/.test(res.headers.get('location'));
   const waitForEmail = async (type, to) => {
     for (let i = 0; i < 50; i++) {
       const dir = baseEnv.OUTBOX_DIR;
@@ -234,7 +262,7 @@ async function main() {
     });
     await check('owner file uploads also need the token', async () => {
       const owner = new Visitor();
-      await owner.login(ADMIN.email, ADMIN.password);
+      await owner.ownerLogin(ADMIN.email, ADMIN.password);
       const form = new FormData();
       form.set('price', '100');
       form.set('stock', '1');
@@ -244,12 +272,24 @@ async function main() {
 
     // ------------------------------------------------------------ access control
     section('3. Who can see what');
-    await check('guests are sent to login for account, checkout and owner pages', async () => {
+    await check('guests are sent to sign in for account and owner pages', async () => {
       const guest = new Visitor();
-      for (const url of ['/account/profile', '/account/orders', `/account/orders/${aliceOrder.order_no}`, '/checkout', '/admin', '/admin/orders', `/admin/orders/${aliceOrder.id}`, '/admin/products',
+      for (const url of ['/account/profile', '/account/orders', `/account/orders/${aliceOrder.order_no}`, '/admin', '/admin/orders', `/admin/orders/${aliceOrder.id}`, '/admin/products',
         '/account/a-page-added-later']) { // any /account page is private unless listed as public
         assert.ok(isLoginRedirect(await guest.request(url)), url);
       }
+    });
+    await check("a guest can't place an order without confirming an email first", async () => {
+      const guest = new Visitor();
+      const token = await guest.csrf('/cart');
+      await guest.request('/cart/add', { method: 'POST', form: { _csrf: token, product_id: product.id } });
+      const before = (await db.get('SELECT COUNT(*)::int AS n FROM orders')).n;
+      const res = await guest.post('/checkout', {
+        full_name: 'Guest', zone_id: zone.id, street: 'S', building_no: '1', apartment_no: '2', phone_primary: '0912345678', phone_secondary: '01012345678',
+      });
+      assert.equal(res.headers.get('location'), '/checkout');
+      assert.equal((await db.get('SELECT COUNT(*)::int AS n FROM orders')).n, before);
+      assert.ok((await guest.request('/checkout')).text_.includes('/account/code/send'), 'checkout asks for the email');
     });
     await check("a customer can't open the owner dashboard (403)", async () => {
       for (const url of ['/admin', '/admin/orders', `/admin/orders/${aliceOrder.id}`, '/admin/products', '/admin/settings', '/admin/delivery', '/admin/offers', '/admin/offers/new']) {
@@ -290,78 +330,119 @@ async function main() {
       assert.ok(statuses.includes(429), `statuses ${statuses.join(',')}`);
     });
 
-    // ------------------------------------------------------------ sessions & passwords
-    section('4. Logins, sessions and passwords');
-    await check('the session id changes at login (no session fixation)', async () => {
+    // ------------------------------------------------------------ sessions & codes
+    section('4. Sign-in codes, sessions and the owner password');
+    await check('the session id changes at sign-in (no session fixation)', async () => {
       const v = new Visitor();
       await v.csrf();
       const before = v.sid;
-      await v.login('alice@example.com', 'Tarha#2026x');
+      await v.codeLogin('alice@example.com');
       assert.ok(before && v.sid && v.sid !== before);
+      assert.equal((await v.request('/account/profile')).status, 200);
     });
     await check('after logout the old session cookie is useless', async () => {
       const v = new Visitor();
-      await v.login('alice@example.com', 'Tarha#2026x');
+      await v.codeLogin('alice@example.com');
       const old = v.sid;
       await v.post('/account/logout', {});
       const replay = new Visitor();
       replay.cookies.set('eva.sid', old);
       assert.ok(isLoginRedirect(await replay.request('/account/profile')));
     });
-    await check("wrong password and unknown email get the same answer (no account discovery)", async () => {
-      const a = await new Visitor().login('alice@example.com', 'Wrong#Pass123');
-      const b = await new Visitor().login('nobody@example.com', 'Wrong#Pass123');
+    await check('codes are stored only as hashes (the database never has the code)', async () => {
+      const since = Date.now();
+      await new Visitor().sendCode('hash@example.com');
+      const code = await latestCode('hash@example.com', since);
+      const rows = await db.all('SELECT * FROM login_codes WHERE email = ?', ['hash@example.com']);
+      assert.equal(rows.length, 1);
+      assert.ok(!JSON.stringify(rows).includes(code), 'raw code stored');
+      assert.match(rows[0].code_hash, /^[0-9a-f]{64}$/);
+    });
+    await check('a wrong code is refused, and after 5 wrong tries even the right code stops working', async () => {
+      const v = new Visitor();
+      const since = Date.now();
+      await v.sendCode('tries@example.com');
+      const code = await latestCode('tries@example.com', since);
+      const wrong = code === '000000' ? '111111' : '000000';
+      for (let i = 0; i < 5; i++) await v.verifyCode(wrong);
+      await v.verifyCode(code);
+      assert.equal(await db.get('SELECT 1 FROM users WHERE email = ?', ['tries@example.com']), null, 'signed in after 5 wrong codes');
+      assert.ok(isLoginRedirect(await v.request('/account/profile')));
+    });
+    await check('a code works once, and only until it expires (10 minutes)', async () => {
+      const v = new Visitor();
+      const since = Date.now();
+      await v.sendCode('once@example.com');
+      const code = await latestCode('once@example.com', since);
+      assert.equal((await v.verifyCode(code)).status, 302);
+      await v.post('/account/logout', {});
+      const again = new Visitor();
+      await again.sendCode('once@example.com'); // within the minute: no new code is sent…
+      await again.verifyCode(code); // …and the old one is used up
+      assert.ok(isLoginRedirect(await again.request('/account/profile')), 'a used code worked again');
+      const late = new Visitor();
+      const since2 = Date.now();
+      await late.sendCode('late@example.com');
+      const lateCode = await latestCode('late@example.com', since2);
+      await db.run("UPDATE login_codes SET expires_at = ? WHERE email = 'late@example.com'", [Date.now() - 1]);
+      await late.verifyCode(lateCode);
+      assert.equal(await db.get("SELECT 1 FROM users WHERE email = 'late@example.com'"), null, 'expired code worked');
+    });
+    await check('a code only signs in the email it was sent to', async () => {
+      const v = new Visitor();
+      const since = Date.now();
+      await v.sendCode('carol@example.com');
+      const carolCode = await latestCode('carol@example.com', since);
+      await v.sendCode('bob@example.com'); // the session now waits for bob's code
+      await v.verifyCode(carolCode, { email: 'carol@example.com' }); // an email in the form is ignored
+      assert.ok(isLoginRedirect(await v.request('/account/profile')), "carol's code signed in as bob");
+    });
+    await check("asking again and again can't flood an inbox (one code a minute per email)", async () => {
+      const before = codeEmails('flood@example.com');
+      for (let i = 0; i < 4; i++) await new Visitor().sendCode('flood@example.com');
+      await new Promise((r) => setTimeout(r, 500));
+      assert.equal(codeEmails('flood@example.com') - before, 1);
+    });
+    await check('new and known emails get the same answer (no account discovery)', async () => {
+      const page = async (email) => {
+        const v = new Visitor();
+        await v.sendCode(email);
+        return (await v.request('/account/login')).text_.split(email).join('EMAIL').replace(/content="[^"]+"|value="[^"]+"/g, '');
+      };
+      await db.run("INSERT INTO users (email, full_name) VALUES ('dave@example.com', 'Dave')"); // a customer who has ordered before
+      assert.equal(await page('dave@example.com'), await page('brand-new@example.com'));
+    });
+    await check("the owner's email never gets a code and can't sign in with one", async () => {
+      const v = new Visitor();
+      const before = codeEmails(ADMIN.email);
+      await v.sendCode(ADMIN.email);
+      await new Promise((r) => setTimeout(r, 300));
+      assert.equal(codeEmails(ADMIN.email), before, 'a code was emailed to the owner');
+      assert.equal(await db.get('SELECT 1 FROM login_codes WHERE email = ?', [ADMIN.email]), null);
+      assert.ok(isLoginRedirect(await v.request('/admin')));
+    });
+    await check('owner sign-in: a wrong password and an unknown email get the same answer', async () => {
+      const a = await new Visitor().ownerLogin(ADMIN.email, 'Wrong#Pass123');
+      const b = await new Visitor().ownerLogin('nobody@example.com', 'Wrong#Pass123');
+      const c = await new Visitor().ownerLogin('bob@example.com', 'Wrong#Pass123'); // a customer can't use the owner page
       assert.equal(a.status, 422);
       assert.equal(b.status, a.status);
+      assert.equal(c.status, a.status);
       const msg = (r) => /role="alert"[^>]*>([\s\S]*?)<\/p>/.exec(r.text_)?.[1].replace(/<[^>]+>/g, '').trim();
       assert.equal(msg(a), msg(b));
     });
-    await check('"forgot password" answers the same for real and unknown emails', async () => {
-      const a = await new Visitor().post('/account/forgot', { email: 'alice@example.com' });
-      const b = await new Visitor().post('/account/forgot', { email: 'nobody@example.com' });
-      assert.equal(a.status, b.status);
-      const body = (r) => r.text_.replace(/alice@example\.com|nobody@example\.com/g, 'EMAIL').replace(/content="[^"]+"|value="[^"]+"/g, '');
-      assert.equal(body(a), body(b));
+    await check("customers have no password; the owner's is a salted scrypt hash", async () => {
+      const rows = await db.all('SELECT role, password_hash FROM users');
+      assert.ok(rows.filter((r) => r.role === 'customer').every((r) => r.password_hash === null), 'a customer has a password');
+      const owner = rows.find((r) => r.role === 'admin');
+      assert.match(owner.password_hash, /^scrypt\$\d+\$\d+\$\d+\$[A-Za-z0-9+/=]{20,}\$[A-Za-z0-9+/=]{80,}$/);
     });
-    await check('reset emails can\'t be used to flood an inbox (one per account per 10 minutes)', async () => {
-      await waitForEmail('password-reset', 'alice@example.com');
-      const resetEmails = () => fs.readdirSync(baseEnv.OUTBOX_DIR).filter((f) => f.includes('-password-reset-alice@example.com') && f.endsWith('.html')).length;
-      const tokenBefore = (await db.get('SELECT token_hash FROM password_resets WHERE user_id = ?', [aliceUser.id])).token_hash;
-      for (let i = 0; i < 3; i++) {
-        const again = await new Visitor().post('/account/forgot', { email: 'alice@example.com' });
-        assert.equal(again.status, 200, 'same answer as always');
+    await check('the old password pages are gone (they lead to the sign-in page)', async () => {
+      for (const url of ['/account/register', '/account/forgot', '/account/reset/abcdefghijklmnopqrstuvwxyz']) {
+        const res = await new Visitor().request(url);
+        assert.equal(res.status, 301, url);
+        assert.equal(res.headers.get('location'), '/account/login');
       }
-      await new Promise((r) => setTimeout(r, 500));
-      assert.equal(resetEmails(), 1, 'only the first request sent an email');
-      assert.equal((await db.get('SELECT token_hash FROM password_resets WHERE user_id = ?', [aliceUser.id])).token_hash, tokenBefore, 'the first link still works');
-    });
-    await check('a reset link works once, and stored tokens are hashed', async () => {
-      const html = await waitForEmail('password-reset', 'alice@example.com');
-      const token = /\/account\/reset\/([A-Za-z0-9_-]+)/.exec(html)[1];
-      assert.equal(await db.get('SELECT 1 FROM password_resets WHERE token_hash = ?', [token]), null, 'raw token stored');
-      const v = new Visitor();
-      const first = await v.post(`/account/reset/${token}`, { password: 'NewTarha#2026', password_confirm: 'NewTarha#2026' });
-      assert.equal(first.status, 302);
-      const again = await new Visitor().post(`/account/reset/${token}`, { password: 'Other#Pass2026', password_confirm: 'Other#Pass2026' });
-      assert.notEqual(again.status, 302);
-      assert.equal((await new Visitor().login('alice@example.com', 'Other#Pass2026')).status, 422);
-    });
-    await check('resetting the password signs out every other device', async () => {
-      // Alice's original browser session was ended by the reset above.
-      assert.ok(isLoginRedirect(await alice.request('/account/profile')));
-      await alice.login('alice@example.com', 'NewTarha#2026');
-      assert.equal((await alice.request('/account/profile')).status, 200);
-    });
-    await check('weak passwords are refused by the server', async () => {
-      for (const pw of ['short1!', 'alllowercase1!', 'NoDigits!!', 'NoSymbol123A']) {
-        const res = await new Visitor().post('/account/register', { full_name: 'Weak', email: `weak${pw.length}@example.com`, password: pw, password_confirm: pw });
-        assert.equal(res.status, 422, pw);
-      }
-    });
-    await check('passwords are stored as salted scrypt hashes, never as text', async () => {
-      const rows = await db.all('SELECT password_hash FROM users');
-      assert.ok(rows.every((r) => /^scrypt\$\d+\$\d+\$\d+\$[A-Za-z0-9+/=]{20,}\$[A-Za-z0-9+/=]{80,}$/.test(r.password_hash)));
-      assert.equal(new Set(rows.map((r) => r.password_hash.split('$')[4])).size, rows.length, 'salts repeat');
     });
 
     // ------------------------------------------------------------ injection
@@ -384,7 +465,9 @@ async function main() {
         const res = await new Visitor().request('/shop?q=' + encodeURIComponent(q));
         assert.equal(res.status, 200, q);
       }
-      assert.equal((await new Visitor().login("' OR '1'='1", "' OR '1'='1")).status, 422);
+      assert.equal((await new Visitor().ownerLogin("' OR '1'='1", "' OR '1'='1")).status, 422);
+      await new Visitor().sendCode("' OR '1'='1");
+      assert.equal(await db.get("SELECT 1 FROM login_codes WHERE email LIKE '%''%'"), null, 'a code for a non-email');
       assert.ok((await db.get('SELECT COUNT(*)::int AS n FROM users')).n >= 3, 'users table intact');
     });
     await check('odd form values are rejected cleanly (no crashes)', async () => {
@@ -407,8 +490,12 @@ async function main() {
         const lang = await new Visitor().request(`/lang/en?next=${encodeURIComponent(next)}`);
         const where = new URL(lang.headers.get('location'), BASE);
         assert.equal(where.origin, BASE, `lang next=${next}`);
-        const login = await new Visitor().post('/account/login', { email: 'bob@example.com', password: 'Tarha#2026x', next });
-        assert.equal(new URL(login.headers.get('location'), BASE).origin, BASE, `login next=${next}`);
+        const login = await new Visitor().ownerLogin(ADMIN.email, ADMIN.password, { next });
+        assert.equal(new URL(login.headers.get('location'), BASE).origin, BASE, `owner login next=${next}`);
+      }
+      for (const [i, next] of targets.slice(0, 2).entries()) {
+        const res = await new Visitor().codeLogin(`next${i}@example.com`, { next, back: next });
+        assert.equal(new URL(res.headers.get('location'), BASE).origin, BASE, `code sign-in next=${next}`);
       }
     });
     await check('source code, settings and the database are not downloadable', async () => {
@@ -425,7 +512,7 @@ async function main() {
     });
     await check('owner uploads accept only images', async () => {
       const owner = new Visitor();
-      await owner.login(ADMIN.email, ADMIN.password);
+      await owner.ownerLogin(ADMIN.email, ADMIN.password);
       const token = await owner.csrf('/admin/products/new');
       const form = new FormData();
       form.set('_csrf', token);
@@ -458,8 +545,10 @@ async function main() {
       await bob.request('/cart/add', { method: 'POST', form: { _csrf: token, product_id: product.id, qty: '1' } });
       const count = async () => (await db.get('SELECT COUNT(*)::int AS n FROM orders WHERE user_id = ?', [bobUser.id])).n;
       const before = await count();
-      const res = await bob.post('/checkout', { expected_total: '1' });
-      assert.equal(res.headers.get('location'), '/cart');
+      const res = await bob.post('/checkout', {
+        expected_total: '1', full_name: 'Bob', zone_id: zone.id, street: 'S', building_no: '1', apartment_no: '2', phone_primary: '0912345678', phone_secondary: '01012345678',
+      });
+      assert.equal(res.headers.get('location'), '/checkout');
       assert.equal(await count(), before, 'order placed with a forged total');
     });
     await check("a customer can't order more than the stock, or a negative amount", async () => {
@@ -474,11 +563,11 @@ async function main() {
     });
 
     // ------------------------------------------------------------ brute force (last: it blocks this IP)
-    section('8. Password guessing');
-    await check('repeated login attempts are slowed down (429)', async () => {
+    section('8. Guessing codes and the owner password');
+    await check('repeated sign-in attempts are slowed down (429)', async () => {
       let blockedAt = 0;
-      for (let i = 1; i <= 70 && !blockedAt; i++) {
-        const res = await new Visitor().login('bob@example.com', `Guess#${i}aaaa`);
+      for (let i = 1; i <= 130 && !blockedAt; i++) {
+        const res = await new Visitor().ownerLogin(ADMIN.email, `Guess#${i}aaaa`);
         if (res.status === 429) blockedAt = i;
       }
       assert.ok(blockedAt, 'never blocked');

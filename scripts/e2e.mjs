@@ -74,7 +74,6 @@ console.log(`Test server: ${BASE} (temporary data in ${TMP})`);
 
 const SHOTS = path.join(ROOT, 'temporary screenshots');
 const email = `e2e.${Date.now()}@example.com`;
-const password = 'Tarha#2026x';
 fs.mkdirSync(SHOTS, { recursive: true });
 
 let step = 0;
@@ -141,9 +140,23 @@ try {
   await page.setViewport({ width: 430, height: 932 });
   await stubMapTiles(page);
 
-  // ---------------------------------------------------------------- characters
-  section('Login / register characters react to the form');
-  await page.goto(`${BASE}/account/register`, { waitUntil: 'networkidle0' });
+  // ---------------------------------------------------------------- home
+  section('Home: the newest tarhas build up as a photo collage');
+  await page.goto(`${BASE}/`, { waitUntil: 'networkidle0' });
+  const newest = (await db.all(`SELECT slug FROM products WHERE is_active = 1 AND is_archived = 0
+    AND id IN (SELECT product_id FROM product_images) ORDER BY created_at DESC, id DESC LIMIT 3`)).map((r) => r.slug);
+  const collage = await page.$$eval('.hc a.hc-centre, .hc a.hc-side', (as) => as.map((a) => a.getAttribute('href')));
+  assert.equal(collage.length, 3, 'three photos in the collage');
+  assert.deepEqual([...collage].sort(), newest.map((s) => `/product/${s}`).sort(), 'the three newest tarhas');
+  assert.equal(await page.$eval('.hc-centre', (a) => a.getAttribute('href')), `/product/${newest[0]}`, 'the newest one in the middle');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.hc-cta')).opacity === '1', { timeout: 6000 });
+  assert.equal(await page.$('#featured-title'), null, 'no "most wanted" section');
+  ok(`the collage plays and shows the 3 newest tarhas (${newest.join(', ')}), the newest in the middle`);
+  await shot(page, 'home', false);
+
+  // ---------------------------------------------------------------- sign-in page
+  section('Sign-in page: email then code, characters still react');
+  await page.goto(`${BASE}/account/login`, { waitUntil: 'networkidle0' });
   const acState = () => page.$eval('[data-auth-characters]', (el) => el.dataset.state);
   const waitState = (s) => page.waitForFunction((want) => document.querySelector('[data-auth-characters]')?.dataset.state === want, { timeout: 3000 }, s);
   assert.equal(await page.$$eval('[data-auth-characters] [data-ch]', (els) => els.length), 4, 'four characters drawn');
@@ -156,59 +169,79 @@ try {
   await page.mouse.move(420, 900);
   await sleep(120);
   assert.notEqual(await pupil(), lookTopLeft, 'eyes follow the pointer');
-  ok('four characters render, and their eyes follow the pointer');
+  assert.equal(await page.$('input[type="password"]'), null, 'no password on the customer sign-in page');
+  assert.equal(await page.$('a[href^="/account/register"]'), null, 'no "create account" link');
   await page.focus('#f-email');
   await waitState('typing');
-  await page.focus('#f-password');
-  await waitState('shy');
-  await page.$eval('[data-toggle-password="f-password"]', (b) => b.click());
-  await waitState('peek');
-  await shot(page, 'characters-peek', false);
-  await page.$eval('[data-toggle-password="f-password"]', (b) => b.click());
-  await waitState('shy');
-  await page.$eval('#f-password', (el) => el.blur());
+  await page.$eval('#f-email', (el) => el.blur());
   await waitState('idle');
-  ok('email → look and lean, password → shy, show password → peek, blur → idle');
+  ok('email only (no password, no "create account"); the characters look at the email field');
+  await shot(page, 'login', false);
+  for (const old of ['/account/register', '/account/forgot']) {
+    assert.equal(await page.evaluate((u) => fetch(u, { redirect: 'manual' }).then((r) => r.type === 'opaqueredirect'), old), true, `${old} redirects`);
+  }
+  ok('old register / forgot-password links lead to the sign-in page');
 
-  // ---------------------------------------------------------------- register
-  section('Register: validation and welcome email');
-  await page.goto(`${BASE}/account/register`, { waitUntil: 'networkidle0' });
-  await fill(page, { full_name: 'Amna Osman', email: 'no-at-sign.com', password: 'abc', password_confirm: 'abc' });
-  await requestSubmit(page, 'form[action="/account/register"]');
-  await sleep(200);
-  assert.equal(page.url(), `${BASE}/account/register`, 'client validation should block submit');
-  const clientErrors = await page.$$eval('[data-client-error]', (els) => els.map((e) => e.textContent));
-  assert.ok(clientErrors.length >= 2, 'client errors shown for email and password');
-  ok(`browser blocks bad email + weak password (${clientErrors.length} messages)`);
-  await shot(page, 'register-client-errors', false);
+  // ---------------------------------------------------------------- cart (guest)
+  section('Cart: a guest adds tarhas (no account yet)');
+  const karkadeh = (await db.get("SELECT * FROM products WHERE slug = 'karkadeh'"));
+  const blueNile = (await db.get("SELECT * FROM products WHERE slug = 'blue-nile'"));
+  await page.goto(`${BASE}/product/karkadeh`, { waitUntil: 'networkidle0' });
+  await shot(page, 'product');
+  await page.$eval('#qty', (el) => { el.value = '2'; });
+  await requestSubmit(page, '#add-to-cart');
+  await page.waitForFunction(() => document.querySelector('[data-cart-count]')?.textContent.trim() === '2');
+  ok('add to cart updates the badge without reloading');
+  await page.goto(`${BASE}/product/blue-nile`, { waitUntil: 'networkidle0' });
+  await requestSubmit(page, '#add-to-cart');
+  await page.waitForFunction(() => document.querySelector('[data-cart-count]')?.textContent.trim() === '3');
+  await page.goto(`${BASE}/cart`, { waitUntil: 'networkidle0' });
+  const zone = (await db.get("SELECT * FROM zones WHERE name_en = 'Mohandessin'"));
+  const fee = zone.fee; // Mohandessin delivery fee
+  const k = Math.round((karkadeh.price * (100 - karkadeh.discount_percent)) / 100);
+  const itemsTotal = k * 2 + Math.round((blueNile.price * (100 - blueNile.discount_percent)) / 100);
+  const expected = itemsTotal + fee;
+  assert.equal(Number(await page.$eval('[data-total]', (el) => el.dataset.total)), itemsTotal, 'guest total: items only');
+  assert.ok((await page.$eval('[data-zone-note]', (el) => el.innerText)).includes('إتمام الطلب'), 'fee is worked out at checkout');
+  ok('a guest sees the items total, and that delivery is worked out at checkout');
+  await shot(page, 'cart');
 
-  // Same bad input with client checks removed: the server must reject it too.
-  await page.$eval('form[action="/account/register"]', (f) => f.removeAttribute('data-validate'));
-  await submit(page, 'form[action="/account/register"]');
-  assert.ok(await page.$('#f-email-error'), 'server email error');
-  assert.ok(await page.$('#f-password-error'), 'server password error');
-  ok('server rejects "no-at-sign.com" and "abc" (422)');
-
-  await page.$eval('form[action="/account/register"]', (f) => f.removeAttribute('data-validate'));
-  await fill(page, { full_name: 'Amna Osman', email, password: 'weakpassword1', password_confirm: 'weakpassword1' });
-  await submit(page, 'form[action="/account/register"]');
-  assert.ok(await page.$('#f-password-error'), 'password without upper/symbol rejected');
-  ok('server rejects a password with no uppercase or symbol');
-
+  // ---------------------------------------------------------------- checkout: email code
+  section('Checkout: email → code (no account, no password)');
+  await page.goto(`${BASE}/checkout`, { waitUntil: 'networkidle0' });
+  assert.ok(await page.$('form[action="/account/code/send"]'), 'guest checkout asks for the email');
+  await fill(page, { email: 'no-at-sign.com' });
+  await submit(page, 'form[action="/account/code/send"]');
+  assert.ok(await page.$('#f-email-error'), 'bad email refused');
+  ok('a bad email is refused');
   const t0 = Date.now();
-  await fill(page, { full_name: 'Amna Osman', email, password, password_confirm: password });
-  await submit(page, 'form[action="/account/register"]');
-  assert.match(page.url(), /\/account\/profile/);
-  ok('valid registration logs in and opens the profile');
-  await sleep(800);
+  await fill(page, { email: email.toUpperCase() });
+  await submit(page, 'form[action="/account/code/send"]');
+  assert.equal(page.url(), `${BASE}/checkout`);
+  assert.ok(await page.$('[data-code-input]'), 'code step shown');
+  const codeMail = await waitForEmail('login-code', email, t0);
+  const code = /letter-spacing:10px[^>]*>(\d{6})</.exec(codeMail.html)?.[1];
+  assert.match(code ?? '', /^\d{6}$/, 'the email has a 6-digit code');
+  ok(`a 6-digit code was emailed to ${email}`);
+  await shot(page, 'checkout-code', false);
+  const wrong = code === '000000' ? '111111' : '000000';
+  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0' }), page.type('[data-code-input]', wrong)]);
+  assert.ok(await page.$('#f-code-error'), 'wrong code refused');
+  assert.equal(await db.get('SELECT 1 FROM users WHERE email = ?', [email]), null, 'nobody signed in yet');
+  ok('a wrong code is refused');
+  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle0' }), page.type('[data-code-input]', code)]);
+  assert.equal(page.url(), `${BASE}/checkout`);
+  const newCustomer = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+  assert.ok(newCustomer && newCustomer.password_hash === null && newCustomer.role === 'customer', 'customer created without a password');
+  assert.equal(await page.$eval('[data-cart-count]', (el) => el.textContent.trim()), '3', 'the cart survived signing in');
+  ok('typing the right code signs in (sent by itself after 6 digits), keeps the cart, no password');
+  await sleep(500);
   const welcomeFiles = () => (fs.existsSync(config.outboxDir) ? fs.readdirSync(config.outboxDir) : [])
     .filter((f) => f.includes('-welcome-') && f.endsWith('.html'));
-  assert.equal(welcomeFiles().length, 0, 'no welcome email at sign-up');
-  ok('no welcome email yet: it goes out once the profile is saved');
+  assert.equal(welcomeFiles().length, 0, 'no welcome email before the details are saved');
 
-  // ---------------------------------------------------------------- profile
-  section('Profile: neighborhood, full address and both phones required');
-  const zone = (await db.get("SELECT * FROM zones WHERE name_en = 'Mohandessin'"));
+  // ---------------------------------------------------------------- checkout: details
+  section('Checkout: neighborhood, full address and both phones on the same page');
   const zoneOptions = () => page.$$eval('#f-zone_id option:not([value=""])', (os) => os.map((o) => o.value));
   assert.deepEqual(await zoneOptions(), [String(zone.id)], 'only neighborhoods with a fee are offered');
   ok('customers can only pick neighborhoods that have a delivery fee (Mohandessin)');
@@ -217,27 +250,27 @@ try {
     building_no: '14', apartment_no: '3', phone_primary: '0912345678', phone_secondary: '+249 99 123 4567',
   };
   await fill(page, { ...profile, apartment_no: '', phone_secondary: '' });
-  await page.$eval('form[action="/account/profile"]', (f) => f.removeAttribute('data-validate'));
-  await submit(page, 'form[action="/account/profile"]');
+  await page.$eval('form[action="/checkout"]', (f) => f.removeAttribute('data-validate'));
+  await submit(page, 'form[action="/checkout"]');
   assert.ok(await page.$('#f-zone_id-error'), 'neighborhood required');
-  assert.equal(await page.$eval('[data-form-error]', (el) => el.hidden), false, '"not saved" message shown');
+  assert.equal(await page.$eval('[data-form-error]', (el) => el.hidden), false, '"not sent" message shown');
   assert.ok(await page.$('#f-apartment_no-error'), 'apartment number required');
   assert.ok(await page.$('#f-phone_secondary-error'), 'second phone required');
-  ok('missing neighborhood, apartment number and second phone are rejected');
+  assert.equal(await db.get('SELECT 1 FROM orders'), null, 'no order placed');
+  ok('missing neighborhood, apartment number and second phone are rejected; no order');
 
-  // Map picker: search (Enter must not submit the profile), pick the result, confirm.
+  // Map picker: search (Enter must not submit the order), pick the result, confirm.
   await page.waitForSelector('[data-location-picker]:not([hidden]) .leaflet-container', { timeout: 15000 });
   assert.equal(await page.$eval('[data-location-picker] .leaflet-control-attribution', (el) => el.textContent.includes('OpenStreetMap')), true);
   await page.$eval('[name="street"]', (el) => { el.value = 'ررر'; }); // junk the map should replace
-  const profileUrl = page.url();
   await page.type('[data-geo-search]', 'المهندسين');
   await page.keyboard.press('Enter');
   await page.waitForSelector('[data-geo-results] li button', { timeout: 5000 });
-  assert.equal(page.url(), profileUrl, 'Enter in the map search does not submit the form');
+  assert.equal(await db.get('SELECT 1 FROM orders'), null, 'Enter in the map search does not send the order');
   await page.$eval('[data-geo-results] li button', (b) => b.click());
   await page.waitForFunction(() => !document.querySelector('[data-geo-confirm]').disabled, { timeout: 8000 });
   await page.$eval('[data-geo-confirm]', (b) => b.click());
-  const picked = await page.$eval('form[action="/account/profile"]', (f) => ({
+  const picked = await page.$eval('form[action="/checkout"]', (f) => ({
     lat: f.elements.location_lat.value, lng: f.elements.location_lng.value, label: f.elements.location_label.value, street: f.elements.street.value,
     building: f.elements.building_no.value, zone: f.elements.zone_id.value, city: document.querySelector('#f-city').value,
     note: document.querySelector('[data-geo-note]').textContent,
@@ -260,51 +293,11 @@ try {
   assert.equal(await apiStatus(page, '/api/geo/reverse?lat=200&lng=31'), 400);
   assert.equal(await apiStatus(page, '/api/geo/search?q=x'), 400);
   ok('bad coordinates and one-letter searches are refused (400)');
+  await page.waitForFunction((want) => document.querySelector('[data-checkout-totals] [data-total]')?.dataset.total === String(want), { timeout: 5000 }, expected);
+  assert.equal(await page.$eval('[data-expected-total]', (el) => el.value), String(expected));
+  ok(`choosing the neighborhood adds its delivery fee to the summary (${(expected / 100).toFixed(2)} EGP)`);
 
   await fill(page, profile);
-  await page.select('#f-city', zone.city_ar);
-  await page.select('#f-zone_id', String(zone.id));
-  await submit(page, 'form[action="/account/profile"]');
-  const saved = (await db.get('SELECT * FROM users WHERE email = ?', [email]));
-  assert.equal(saved.zone_id, zone.id);
-  assert.equal(saved.village, 'المهندسين');
-  assert.equal(saved.apartment_no, '3');
-  assert.equal(saved.phone_secondary, '+249991234567');
-  ok('profile saved with neighborhood Mohandessin (phones normalised: +249991234567)');
-  assert.deepEqual([saved.location_lat, saved.location_lng], [Number(PLACE.lat), Number(PLACE.lon)]);
-  assert.match(saved.location_label, /المهندسين/);
-  ok('map location saved on the profile');
-  const welcome = await waitForEmail('welcome', email, t0);
-  assert.match(welcome.html, /Amna Osman/);
-  assert.ok((await db.get('SELECT welcomed_at FROM users WHERE email = ?', [email])).welcomed_at);
-  ok('welcome email sent after the first "Save details"');
-  await shot(page, 'profile-saved');
-
-  // ---------------------------------------------------------------- cart
-  section('Cart: totals with a discounted item');
-  const karkadeh = (await db.get("SELECT * FROM products WHERE slug = 'karkadeh'"));
-  const blueNile = (await db.get("SELECT * FROM products WHERE slug = 'blue-nile'"));
-  await page.goto(`${BASE}/product/karkadeh`, { waitUntil: 'networkidle0' });
-  await shot(page, 'product');
-  await page.$eval('#qty', (el) => { el.value = '2'; });
-  await requestSubmit(page, '#add-to-cart');
-  await page.waitForFunction(() => document.querySelector('[data-cart-count]')?.textContent.trim() === '2');
-  ok('add to cart updates the badge without reloading');
-  await page.goto(`${BASE}/product/blue-nile`, { waitUntil: 'networkidle0' });
-  await requestSubmit(page, '#add-to-cart');
-  await page.waitForFunction(() => document.querySelector('[data-cart-count]')?.textContent.trim() === '3');
-  await page.goto(`${BASE}/cart`, { waitUntil: 'networkidle0' });
-  const fee = zone.fee; // Mohandessin delivery fee
-  const k = Math.round((karkadeh.price * (100 - karkadeh.discount_percent)) / 100);
-  const expected = k * 2 + Math.round((blueNile.price * (100 - blueNile.discount_percent)) / 100) + fee;
-  const shown = Number(await page.$eval('[data-total]', (el) => el.dataset.total));
-  assert.equal(shown, expected);
-  ok(`cart total ${(shown / 100).toFixed(2)} EGP matches the hand calculation`);
-  await shot(page, 'cart');
-
-  // ---------------------------------------------------------------- checkout
-  section('Checkout: order, stock and confirmation email');
-  await page.goto(`${BASE}/checkout`, { waitUntil: 'networkidle0' });
   await shot(page, 'checkout');
   const t1 = Date.now();
   await submit(page, 'form[action="/checkout"]');
@@ -312,12 +305,24 @@ try {
   assert.ok(orderNo, 'redirected to the order page');
   ok(`order ${orderNo} placed`);
   await shot(page, 'order-placed');
+  const saved = (await db.get('SELECT * FROM users WHERE email = ?', [email]));
+  assert.equal(saved.full_name, 'Amna Osman');
+  assert.equal(saved.zone_id, zone.id);
+  assert.equal(saved.village, 'المهندسين');
+  assert.equal(saved.apartment_no, '3');
+  assert.equal(saved.phone_secondary, '+249991234567');
+  assert.deepEqual([saved.location_lat, saved.location_lng], [Number(PLACE.lat), Number(PLACE.lon)]);
+  ok('the details are saved for next time (phones normalised: +249991234567, map location kept)');
+  const welcome = await waitForEmail('welcome', email, t0);
+  assert.match(welcome.html, /Amna Osman/);
+  ok('welcome email sent with the first order');
   const order = (await db.get('SELECT * FROM orders WHERE order_no = ?', [orderNo]));
   assert.equal(order.total, expected);
   assert.equal(order.status, 'processing');
+  assert.equal(order.customer_email, email);
   assert.equal(order.apartment_no, '3');
   assert.deepEqual([order.location_lat, order.location_lng], [Number(PLACE.lat), Number(PLACE.lon)]);
-  ok('the order keeps a copy of the map location');
+  ok('the order keeps a copy of the address and the map location');
   const stockAfter = (await db.get('SELECT stock FROM products WHERE id = ?', [karkadeh.id])).stock;
   assert.equal(stockAfter, karkadeh.stock - 2);
   ok(`stock decremented (Karkadeh ${karkadeh.stock} → ${stockAfter})`);
@@ -334,15 +339,22 @@ try {
   active = admin;
   admin.on('pageerror', (e) => errors.push(e.message));
   await admin.setViewport({ width: 1366, height: 900 });
-  await admin.goto(`${BASE}/account/login`, { waitUntil: 'networkidle0' });
+  await admin.goto(`${BASE}/admin`, { waitUntil: 'networkidle0' });
+  assert.equal(new URL(admin.url()).pathname, '/admin/login', 'the dashboard sends guests to the owner sign-in');
+  const ownerCode = await admin.evaluate(async (ownerEmail) => {
+    const body = new URLSearchParams({ _csrf: document.querySelector('meta[name="csrf-token"]').content, email: ownerEmail, back: '/account/login' });
+    const page = await (await fetch('/account/code/send', { method: 'POST', body })).text(); // follows back to the sign-in page
+    return page.includes('بريد صاحب المتجر') && !page.includes('data-code-input');
+  }, config.admin.email);
+  assert.ok(ownerCode, 'the owner email gets no sign-in code');
+  ok('the owner email never gets a code: the dashboard has its own password sign-in (/admin/login)');
   await fill(admin, { email: config.admin.email, password: 'Wrong#Pass123' });
-  await submit(admin, 'form[action="/account/login"]');
-  assert.equal(await admin.$eval('[data-auth-characters]', (el) => el.dataset.state), 'error');
+  await submit(admin, 'form[action="/admin/login"]');
   assert.ok(await admin.$('[role="alert"]'), 'wrong-details message');
-  ok('wrong password: message shown and the characters look sad');
+  ok('wrong owner password: message shown');
   await shot(admin, 'login-error', false);
   await fill(admin, { email: config.admin.email, password: config.admin.password });
-  await submit(admin, 'form[action="/account/login"]');
+  await submit(admin, 'form[action="/admin/login"]');
   assert.match(admin.url(), /\/admin$/);
   ok('owner lands on the dashboard after sign-in');
   await shot(admin, 'admin-overview');
@@ -439,8 +451,8 @@ try {
   await guest.goto(`${BASE}/cart`, { waitUntil: 'networkidle0' });
   const guestSummary = await guest.$eval('aside[aria-labelledby="summary-title"]', (a) => a.innerText);
   assert.ok(guestSummary.includes('حسب الحي'));
-  assert.ok(await guest.$('a[href="/account/login?next=/cart"]'), 'sign-in link to get the fee');
-  ok('a guest sees "حسب الحي" and a link to sign in');
+  assert.ok(await guest.$('[data-zone-note]'), 'note: the fee is worked out at checkout');
+  ok('a guest sees "حسب الحي" and that the fee is worked out at checkout');
   assert.equal(await guest.evaluate(() => fetch('/api/geo/search?q=Dokki').then((r) => r.status)), 401);
   ok('the address lookup is for signed-in customers only (guest gets 401)');
   await guestContext.close();
@@ -656,6 +668,31 @@ try {
   await submit(admin, 'form[action="/admin/settings/password"]');
   assert.ok(await verifyPassword(config.admin.password, (await db.get("SELECT password_hash FROM users WHERE role = 'admin'")).password_hash));
   ok('the owner changes the password in Dashboard → Settings (the current password is required)');
+
+  section('Returning customer: a new code, details already filled in, just confirm');
+  const back = await (await browser.createBrowserContext()).newPage();
+  back.on('pageerror', (e) => errors.push(e.message));
+  await back.setViewport({ width: 430, height: 932 });
+  await stubMapTiles(back);
+  await back.goto(`${BASE}/product/blue-nile`, { waitUntil: 'networkidle0' });
+  await requestSubmit(back, '#add-to-cart');
+  await back.waitForFunction(() => document.querySelector('[data-cart-count]')?.textContent.trim() === '1');
+  await back.goto(`${BASE}/checkout`, { waitUntil: 'networkidle0' });
+  const t5 = Date.now();
+  await fill(back, { email });
+  await submit(back, 'form[action="/account/code/send"]');
+  const code2 = /letter-spacing:10px[^>]*>(\d{6})</.exec((await waitForEmail('login-code', email, t5)).html)?.[1];
+  assert.notEqual(code2, code, 'a new code each time');
+  await Promise.all([back.waitForNavigation({ waitUntil: 'networkidle0' }), back.type('[data-code-input]', code2)]);
+  const prefilled = await back.$eval('form[action="/checkout"]', (f) => [f.elements.full_name.value, f.elements.apartment_no.value, f.elements.zone_id.value]);
+  assert.deepEqual(prefilled, ['Amna Osman', '3', String((await db.get('SELECT zone_id FROM users WHERE email = ?', [email])).zone_id)]);
+  ok('signed in with a fresh code; name, address and phones are already filled in');
+  const ordersBefore = (await db.get('SELECT COUNT(*)::int AS n FROM orders WHERE customer_email = ?', [email])).n;
+  await submit(back, 'form[action="/checkout"]');
+  assert.match(back.url(), /\/account\/orders\/EVA-\d+\?placed=1/);
+  assert.equal((await db.get('SELECT COUNT(*)::int AS n FROM orders WHERE customer_email = ?', [email])).n, ordersBefore + 1);
+  assert.equal((await db.get('SELECT COUNT(*)::int AS n FROM users WHERE email = ?', [email])).n, 1, 'still one customer for this email');
+  ok('one tap on "تأكيد الطلب" places the order (same customer, no second account)');
 
   section('Browser console');
   assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);

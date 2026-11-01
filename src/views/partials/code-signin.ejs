@@ -1,0 +1,64 @@
+<%#
+  Sign in with a code sent by email, in two steps: the email, then the 6-digit code.
+  Locals: codeStep ('email' | 'code'), codeEmail, codeError (text key), back (the page to come back to), next.
+  Used on the sign-in page and on checkout for guests.
+%>
+<% const nextPath = typeof next !== 'undefined' ? next : ''; %>
+<% if (codeStep === 'code') { %>
+  <p class="mt-5 rounded-xl bg-eva-mist px-4 py-3 text-[14px] leading-relaxed text-ink" data-code-sent>
+    <%= t('code.sent_to') %> <strong dir="ltr" class="font-medium"><%= codeEmail %></strong>
+  </p>
+  <form action="/account/code/verify" method="post" class="mt-5 space-y-5" novalidate data-otp-form>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="back" value="<%= back %>">
+    <% if (nextPath) { %><input type="hidden" name="next" value="<%= nextPath %>"><% } %>
+    <%#
+      Six boxes over one real input (so pasting and the phone's "fill code from email" still work).
+      public/js/otp.js turns the boxes on, eats the digits Pac-Man style once all six are typed, checks the
+      code, and shows the green tick. Without the script it is a plain input.
+    %>
+    <div data-field>
+      <label for="f-code" class="mb-1.5 block text-[14px] font-medium text-ink"><%= t('code.label') %></label>
+      <div class="otp relative <%= codeError ? 'otp-error' : '' %>" data-otp>
+        <input id="f-code" name="code" type="text" value="" autocomplete="one-time-code" inputmode="numeric" dir="ltr" required autofocus
+          maxlength="6" pattern="[0-9]*" data-code-input
+          aria-describedby="f-code-hint<%= codeError ? ' f-code-error' : '' %>" <%- codeError ? 'aria-invalid="true"' : '' %>
+          class="otp-input h-14 w-full rounded-xl border bg-white px-4 text-center text-[22px] tracking-[0.5em] text-ink outline-none focus:border-eva-deep focus:ring-4 focus:ring-eva/10 <%= codeError ? 'border-[#B3203A]' : 'border-line' %>">
+        <div class="otp-boxes" dir="ltr" aria-hidden="true">
+          <% for (let i = 0; i < 6; i++) { %><span class="otp-box"><span class="otp-digit"></span></span><% } %>
+          <span class="otp-pac"></span>
+        </div>
+      </div>
+      <p id="f-code-hint" class="mt-1.5 text-[13px] text-ink-soft"><%= t('code.hint') %></p>
+      <% if (codeError) { %><p id="f-code-error" class="mt-1.5 flex items-center gap-1.5 text-[13px] text-[#B3203A]"><%- include('icon', { name: 'alert', cls: 'h-4 w-4 shrink-0' }) %><%= t(codeError) %></p><% } %>
+      <div class="otp-done" data-otp-done hidden role="status">
+        <div class="otp-burst" aria-hidden="true"></div>
+        <span class="otp-tick" aria-hidden="true"><%- include('icon', { name: 'check', cls: 'h-9 w-9' }) %></span>
+        <p class="otp-done-title mt-4 text-[18px] font-medium text-ok"><%= t('code.verified') %></p>
+        <p class="otp-done-sub mt-1 text-[14px] text-ink-soft"><%= t('code.verified_sub') %></p>
+        <p class="otp-done-lock mt-3 inline-flex items-center gap-1.5 text-[13px] text-ok"><%- include('icon', { name: 'lock', cls: 'h-4 w-4' }) %><%= t('code.verified_secure') %></p>
+      </div>
+    </div>
+    <button class="press flex h-[52px] w-full items-center justify-center rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60"><span class="btn-label"><%= t('code.verify') %></span></button>
+  </form>
+  <div class="mt-4 flex flex-wrap items-center justify-between gap-2 text-[14px]">
+    <form action="/account/code/send" method="post" data-once>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="back" value="<%= back %>">
+      <input type="hidden" name="email" value="<%= codeEmail %>">
+      <button class="text-eva-deep underline-offset-4 hover:underline"><%= t('code.resend') %></button>
+    </form>
+    <form action="/account/code/change" method="post" data-once>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="back" value="<%= back %>">
+      <button class="text-ink-soft underline-offset-4 hover:underline"><%= t('code.change_email') %></button>
+    </form>
+  </div>
+<% } else { %>
+  <form action="/account/code/send" method="post" class="mt-6 space-y-5" novalidate data-once>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="back" value="<%= back %>">
+    <%- include('field', { field: { name: 'email', label: t('auth.email'), type: 'email', value: codeEmail, error: codeError, autocomplete: 'email', inputmode: 'email', fdir: 'ltr', required: true } }) %>
+    <button class="press flex h-[52px] w-full items-center justify-center rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60"><span class="btn-label"><%= t('code.send') %></span></button>
+  </form>
+<% } %>

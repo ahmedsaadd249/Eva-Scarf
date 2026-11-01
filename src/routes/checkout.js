@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { requireUser } from '../auth.js';
 import { loadCart } from '../cart.js';
 import { sendOrderConfirmation } from '../emails.js';
 import { OrderError, placeOrder } from '../orders.js';
-import { isProfileComplete } from '../../public/js/validation.js';
-import { deliverableZone } from '../zones.js';
+import { checkProfile, saveProfile } from '../profile.js';
+import { groupByCity, listZones } from '../zones.js';
+import { codeLocals } from './account.js';
 
 const router = Router();
 
@@ -15,23 +15,46 @@ function noOwnerOrders(req, res, next) {
   res.redirect('/cart');
 }
 
-async function needsProfile(req, res) {
-  if (isProfileComplete(req.user) && (await deliverableZone(req.user.zone_id))) return false;
-  // The neighborhood may have been removed or unpriced by the owner since it was saved.
-  req.flash('info', isProfileComplete(req.user) ? 'checkout.choose_zone' : 'checkout.complete_profile');
-  res.redirect('/account/profile?next=/checkout');
-  return true;
+/**
+ * One page from the cart to the order. A guest first signs in with a code sent to their email (no
+ * password, no account to create); then the same page asks for name, address and phones (filled in
+ * from last time) and places the order.
+ */
+async function checkoutPage(req, res, { values, errors = {}, zoneId } = {}) {
+  const { lines, totals, notices, zone } = await loadCart(req, { zoneId });
+  if (!lines.length) return res.redirect('/cart');
+  const locals = { title: res.locals.t('checkout.title'), lines, totals, notices, zone };
+  if (!req.user) return res.page('shop/checkout', { ...locals, guest: true, back: '/checkout', ...codeLocals(req) });
+  res.page('shop/checkout', {
+    ...locals,
+    guest: false,
+    values: values ?? req.user,
+    errors,
+    cities: groupByCity(await listZones({ deliverableOnly: true }), req.lang),
+    pageAssets: { leaflet: true },
+  });
 }
 
-router.get('/checkout', requireUser, noOwnerOrders, async (req, res) => {
-  if (await needsProfile(req, res)) return;
-  const { lines, totals, notices, zone } = await loadCart(req);
-  if (!lines.length) return res.redirect('/cart');
-  res.page('shop/checkout', { title: res.locals.t('checkout.title'), lines, totals, notices, zone });
+router.get('/checkout', noOwnerOrders, (req, res) => checkoutPage(req, res));
+
+// The order summary for another neighborhood, while the customer is choosing it.
+router.get('/checkout/summary', async (req, res) => {
+  const zoneId = Math.trunc(Number(req.query.zone_id)) || null;
+  const { totals } = await loadCart(req, { zoneId });
+  res.render('partials/totals', { ...res.locals, totals }, (err, html) => {
+    if (err) return res.status(500).json({});
+    res.json({ html, total: totals.total, known: totals.delivery_known !== false });
+  });
 });
 
-router.post('/checkout', requireUser, noOwnerOrders, async (req, res) => {
-  if (await needsProfile(req, res)) return;
+router.post('/checkout', noOwnerOrders, async (req, res) => {
+  if (!req.user) return res.redirect('/checkout');
+  const { values, errors, zone } = await checkProfile(req.body);
+  if (Object.keys(errors).length) {
+    return checkoutPage(req, res.status(422), { values: { ...req.user, ...values }, errors, zoneId: zone?.id ?? null });
+  }
+  await saveProfile(req.user.id, values, zone);
+  req.user = { ...req.user, ...values, zone_id: zone.id, city: zone.city_ar, village: zone.name_ar };
   try {
     const order = await placeOrder(req, req.body.expected_total);
     req.session.cart = {};
@@ -40,7 +63,7 @@ router.post('/checkout', requireUser, noOwnerOrders, async (req, res) => {
   } catch (err) {
     if (!(err instanceof OrderError)) throw err;
     req.flash('error', err.key, err.vars);
-    res.redirect('/cart');
+    res.redirect(err.key === 'checkout.error_changed' ? '/checkout' : '/cart');
   }
 });
 

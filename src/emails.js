@@ -85,13 +85,11 @@ export function sendStatusEmail(orderId) {
   });
 }
 
-export function sendPasswordResetEmail(user, token) {
+export function sendLoginCodeEmail(email, code, lang) {
   return queueMail(async () => {
-    const lang = user.lang;
-    const subject = helpersFor(lang).t('email.reset.subject');
-    const resetUrl = `${config.baseUrl}/account/reset/${token}`;
-    const html = await render('password-reset', { lang, subject, user, resetUrl });
-    await sendMail({ to: user.email, subject, html, type: 'password-reset' });
+    const subject = helpersFor(lang).t('email.code.subject', { code });
+    const html = await render('login-code', { lang, subject, code });
+    await sendMail({ to: email, subject, html, type: 'login-code' });
   });
 }
 

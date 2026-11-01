@@ -25,9 +25,10 @@ export function setCartQty(req, productId, qty) {
 /**
  * Load cart lines with live product data. Products that were unpublished or sold
  * out are removed, and quantities above stock are lowered; each change is reported
- * in `notices` so the customer sees why the cart changed.
+ * in `notices` so the customer sees why the cart changed. Delivery is priced for the customer's saved
+ * neighborhood, or for `zoneId` when given.
  */
-export async function loadCart(req) {
+export async function loadCart(req, { zoneId } = {}) {
   const cart = getCart(req);
   const products = await getProductsByIds(Object.keys(cart));
   const byId = new Map(products.map((p) => [String(p.id), p]));
@@ -62,7 +63,8 @@ export async function loadCart(req) {
     });
   }
 
-  const zone = await cartZone(req);
+  // Checkout can price another neighborhood while the customer is choosing it (before it is saved).
+  const zone = zoneId !== undefined ? await deliverableZone(zoneId) : await cartZone(req);
   const totals = computeTotals(lines, zone ? zone.fee : null, await activeOffers());
   return { lines, totals, notices, zone };
 }

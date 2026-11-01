@@ -1,34 +1,10 @@
-<div class="mx-auto max-w-5xl px-4 pb-20 md:px-6">
-  <header class="pb-6 pt-10 md:pt-14">
-    <h1 class="display text-[38px] text-eva md:text-[52px]"><%= t('checkout.title') %></h1>
-  </header>
-
-  <div class="grid gap-6 md:grid-cols-[1fr_360px] md:items-start lg:gap-10">
-    <div class="space-y-5">
-      <section class="rounded-card bg-white p-5 shadow-soft" aria-labelledby="deliver-title">
-        <div class="flex items-center justify-between gap-3">
-          <h2 id="deliver-title" class="flex items-center gap-2 text-[16px] font-medium"><%- include('../partials/icon', { name: 'pin', cls: 'h-5 w-5 text-eva-deep' }) %><%= t('checkout.deliver_to') %></h2>
-          <a href="/account/profile?next=/checkout" class="press inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[14px] text-eva-deep hover:bg-eva-blush/60 active:bg-eva-blush"><%- include('../partials/icon', { name: 'edit', cls: 'h-4 w-4' }) %><%= t('checkout.edit') %></a>
-        </div>
-        <div class="mt-3 text-[15px] leading-relaxed">
-          <p class="font-medium"><%= user.full_name %></p>
-          <p class="text-ink/85"><%= address(user) %></p>
-          <p class="mt-1 text-ink-soft"><span dir="ltr"><%= user.phone_primary %></span><% if (user.phone_secondary) { %> · <span dir="ltr"><%= user.phone_secondary %></span><% } %></p>
-          <p class="text-ink-soft" dir="ltr" style="text-align: start"><%= user.email %></p>
-        </div>
-      </section>
-
-      <section class="rounded-card bg-white p-5 shadow-soft" aria-labelledby="pay-title">
-        <h2 id="pay-title" class="flex items-center gap-2 text-[16px] font-medium"><%- include('../partials/icon', { name: 'truck', cls: 'h-5 w-5 text-eva-deep' }) %><%= t('checkout.payment') %></h2>
-        <label class="mt-3 flex cursor-default items-start gap-3 rounded-xl border-2 border-eva-deep bg-eva-mist p-4">
-          <input type="radio" checked readonly class="mt-1 h-4 w-4 accent-[#B4186F]" aria-describedby="cod-desc">
-          <span>
-            <span class="block text-[15px] font-medium"><%= t('checkout.cod') %></span>
-            <span id="cod-desc" class="block text-[14px] text-ink-soft"><%= t('checkout.cod_desc', { total: money(totals.total) }) %></span>
-          </span>
-        </label>
-      </section>
-
+<%#
+  Checkout, one page. Guests: sign in with a code sent to their email (no password). Signed in: name,
+  address and phones (filled in from last time), payment, items and "Confirm order". Choosing another
+  neighborhood updates the delivery fee and total (public/js/checkout.js).
+%>
+<%
+  const items = function () { %>
       <section class="rounded-card bg-white p-5 shadow-soft" aria-labelledby="items-title">
         <h2 id="items-title" class="text-[16px] font-medium"><%= t('checkout.items', { n: totals.item_count }) %></h2>
         <ul class="mt-3 divide-y divide-line">
@@ -44,19 +20,64 @@
           <% }) %>
         </ul>
       </section>
+<% } %>
+<div class="mx-auto max-w-5xl px-4 pb-20 md:px-6">
+  <header class="pb-6 pt-10 md:pt-14">
+    <h1 class="display text-[38px] text-eva md:text-[52px]"><%= t('checkout.title') %></h1>
+  </header>
+
+<% if (guest) { %>
+  <div class="grid gap-6 md:grid-cols-[1fr_360px] md:items-start lg:gap-10">
+    <div class="space-y-5">
+      <section class="rounded-card bg-white p-5 shadow-soft md:p-6" aria-labelledby="signin-title" data-checkout-signin>
+        <h2 id="signin-title" class="flex items-center gap-2 text-[17px] font-medium"><%- include('../partials/icon', { name: 'mail', cls: 'h-5 w-5 text-eva-deep' }) %><%= t(codeStep === 'code' ? 'code.checkout_title_code' : 'code.checkout_title') %></h2>
+        <p class="mt-1 text-[14px] leading-relaxed text-ink-soft"><%= t('code.checkout_sub') %></p>
+        <div class="max-w-sm"><%- include('../partials/code-signin') %></div>
+      </section>
+      <% items() %>
+    </div>
+    <aside class="rounded-card bg-white p-5 shadow-lift md:sticky md:top-[100px] md:p-6" aria-labelledby="summary-title">
+      <h2 id="summary-title" class="text-[17px] font-medium"><%= t('cart.summary') %></h2>
+      <%- include('../partials/totals', { totals }) %>
+    </aside>
+  </div>
+<% } else { %>
+  <form action="/checkout" method="post" class="grid gap-6 md:grid-cols-[1fr_360px] md:items-start lg:gap-10" novalidate data-validate="profile" data-checkout-form data-once>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="expected_total" value="<%= totals.total %>" data-expected-total>
+    <div class="space-y-5">
+      <p class="text-[14px] text-ink-soft"><%= t('code.signed_in_as') %> <span dir="ltr" class="font-medium text-ink"><%= user.email %></span></p>
+
+      <div data-form-error role="alert" <%= Object.keys(errors).length ? '' : 'hidden' %>>
+        <p class="flex items-start gap-2 rounded-card bg-[#FBE7EA] px-4 py-3.5 text-[15px] text-[#8E1238]">
+          <%- include('../partials/icon', { name: 'alert', cls: 'mt-0.5 h-5 w-5 shrink-0' }) %><span><%= t('checkout.not_sent') %></span>
+        </p>
+      </div>
+
+      <%- include('../partials/delivery-fields') %>
+
+      <section class="rounded-card bg-white p-5 shadow-soft" aria-labelledby="pay-title">
+        <h2 id="pay-title" class="flex items-center gap-2 text-[16px] font-medium"><%- include('../partials/icon', { name: 'truck', cls: 'h-5 w-5 text-eva-deep' }) %><%= t('checkout.payment') %></h2>
+        <label class="mt-3 flex cursor-default items-start gap-3 rounded-xl border-2 border-eva-deep bg-eva-mist p-4">
+          <input type="radio" checked readonly class="mt-1 h-4 w-4 accent-[#B4186F]" aria-describedby="cod-desc">
+          <span>
+            <span class="block text-[15px] font-medium"><%= t('checkout.cod') %></span>
+            <span id="cod-desc" class="block text-[14px] text-ink-soft"><%= t('checkout.cod_desc_short') %></span>
+          </span>
+        </label>
+      </section>
+
+      <% items() %>
     </div>
 
     <aside class="rounded-card bg-white p-5 shadow-lift md:sticky md:top-[100px] md:p-6" aria-labelledby="summary-title">
       <h2 id="summary-title" class="text-[17px] font-medium"><%= t('cart.summary') %></h2>
-      <%- include('../partials/totals', { totals }) %>
-      <form action="/checkout" method="post" class="mt-6" data-once>
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <input type="hidden" name="expected_total" value="<%= totals.total %>">
-        <button class="press flex h-[54px] w-full items-center justify-center gap-2 rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60">
-          <%- include('../partials/icon', { name: 'check', cls: 'h-5 w-5' }) %><span class="btn-label"><%= t('checkout.confirm') %></span>
-        </button>
-      </form>
+      <div data-checkout-totals aria-live="polite"><%- include('../partials/totals', { totals }) %></div>
+      <button class="press mt-6 flex h-[54px] w-full items-center justify-center gap-2 rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60">
+        <%- include('../partials/icon', { name: 'check', cls: 'h-5 w-5' }) %><span class="btn-label"><%= t('checkout.confirm') %></span>
+      </button>
       <p class="mt-3 text-center text-[13px] leading-relaxed text-ink-soft"><%= t('checkout.confirm_note', { email: user.email }) %></p>
     </aside>
-  </div>
+  </form>
+<% } %>
 </div>

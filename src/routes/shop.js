@@ -6,7 +6,6 @@ import { getProductImages, getVisibleProductBySlug, listProducts, productName, S
 const router = Router();
 
 router.get('/', async (req, res) => {
-  const featured = await listProducts({ featuredOnly: true, limit: 8 });
   // Real customer ratings only; the section stays hidden until there are some.
   const testimonials = await all(`
     SELECT r.stars, r.comment, o.customer_name,
@@ -16,7 +15,11 @@ router.get('/', async (req, res) => {
     FROM ratings r JOIN orders o ON o.id = r.order_id
     WHERE r.stars >= 4 AND length(trim(coalesce(r.comment, ''))) >= 12
     ORDER BY r.created_at DESC LIMIT 5`);
-  res.page('shop/home', { title: null, featured, testimonials });
+  // The hero collage shows the three newest tarhas that have a photo (the text hero if none has one).
+  const heroProducts = (await listProducts({ sort: 'newest', limit: 12 })).filter((p) => p.image).slice(0, 3);
+  // Photo hero preview: ?hero=1 (slow zoom), 2 (slideshow), 3 (moving strip).
+  const hero = ['1', '2', '3'].includes(req.query.hero) ? Number(req.query.hero) : 0;
+  res.page('shop/home', { title: null, testimonials, hero, heroProducts });
 });
 
 router.get('/shop', async (req, res) => {

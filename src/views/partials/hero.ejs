@@ -1,0 +1,34 @@
+<%#
+  Photo hero: the picture fills the top of the home page, with only the "Shop now" button on it.
+  hero 1 = one photo, slow zoom · 2 = three photos fading one into the next · 3 = a strip of photos sliding past.
+  Photos live in public/hero/ (-tall for phones, -wide for wider screens). Motion stops for visitors
+  whose phone is set to reduce motion (site.css).
+%>
+<% const photos = ['orange', 'blue', 'stripes']; %>
+<section aria-labelledby="hero-title" class="hero hero-<%= hero %> relative isolate overflow-hidden bg-ink">
+  <h1 id="hero-title" class="sr-only"><%= t('home.hero_title') %></h1>
+
+  <% if (hero === 3) { %>
+    <div class="hero-strip absolute inset-0 flex items-center" aria-hidden="true" dir="ltr">
+      <div class="hero-track flex h-full shrink-0 gap-2 pe-2">
+        <% for (let round = 0; round < 2; round++) { photos.forEach(function (name) { %>
+          <img src="/hero/<%= name %>-tall.webp" alt="" class="h-full w-[72vw] shrink-0 object-cover md:w-[34vw]" decoding="async" width="900" height="1125">
+        <% }) } %>
+      </div>
+    </div>
+  <% } else { %>
+    <% (hero === 1 ? photos.slice(0, 1) : photos).forEach(function (name, i) { %>
+      <picture class="hero-slide absolute inset-0" style="--i: <%= i %>" aria-hidden="true">
+        <source media="(min-width: 768px)" srcset="/hero/<%= name %>-wide.webp">
+        <img src="/hero/<%= name %>-tall.webp" alt="" class="h-full w-full object-cover" <%= i === 0 ? 'fetchpriority=high' : 'loading=lazy' %> decoding="async">
+      </picture>
+    <% }) %>
+  <% } %>
+
+  <div class="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-ink/70 to-transparent" aria-hidden="true"></div>
+  <div class="absolute inset-x-0 bottom-0 flex justify-center pb-10 md:pb-14">
+    <a href="/shop" class="press inline-flex h-[54px] items-center justify-center rounded-[10px] bg-white px-10 text-ink shadow-lift hover:bg-eva-blush active:bg-white">
+      <span class="btn-label"><%= t('home.hero_cta') %></span>
+    </a>
+  </div>
+</section>

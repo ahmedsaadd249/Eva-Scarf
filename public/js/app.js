@@ -1,4 +1,4 @@
-import { emailError, normalizeEmail, passwordChecks, passwordError, validateProfile } from './validation.js';
+import { passwordChecks, validateProfile } from './validation.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -221,15 +221,6 @@ function validateForm(form) {
   const kind = form.dataset.validate;
   const errors = {};
   const v = (n) => form.elements[n]?.value ?? '';
-  if (kind === 'register') {
-    if (v('full_name').trim().length < 2) errors.full_name = 'errors.name_required';
-    const ee = emailError(normalizeEmail(v('email')));
-    if (ee) errors.email = ee;
-    const pe = passwordError(v('password'));
-    if (pe) errors.password = pe;
-    if (v('password') !== v('password_confirm')) errors.password_confirm = 'errors.password_mismatch';
-    ['full_name', 'email', 'password', 'password_confirm'].forEach((n) => setFieldError(form, n, errors[n]));
-  }
   if (kind === 'profile') {
     const data = Object.fromEntries(new FormData(form));
     Object.assign(errors, validateProfile(data).errors);
@@ -282,9 +273,37 @@ if (citySelect && zoneSelect) {
   filterZones();
 }
 
+/* ---------- Checkout: the delivery fee follows the neighborhood being chosen ---------- */
+const checkoutForm = $('[data-checkout-form]');
+if (checkoutForm && zoneSelect) {
+  const totalsBox = $('[data-checkout-totals]', checkoutForm);
+  let asked = 0;
+  zoneSelect.addEventListener('change', async () => {
+    const mine = ++asked;
+    try {
+      const res = await fetch(`/checkout/summary?zone_id=${encodeURIComponent(zoneSelect.value)}`, { headers: { Accept: 'application/json' } });
+      const data = await res.json();
+      if (mine !== asked || !res.ok) return; // a later choice already answered, or the summary failed
+      totalsBox.innerHTML = data.html;
+      $('[data-expected-total]', checkoutForm).value = data.total;
+    } catch { /* the server checks the total again when the order is sent */ }
+  });
+}
+
+/* ---------- Home: play the collage once its photos have loaded (at most 3 s wait) ---------- */
+const heroCollage = $('[data-hero-collage]');
+if (heroCollage) {
+  const loaded = $$('img', heroCollage).map((img) => (img.complete ? Promise.resolve() : new Promise((r) => { img.addEventListener('load', r, { once: true }); img.addEventListener('error', r, { once: true }); })));
+  Promise.race([Promise.all(loaded), new Promise((r) => setTimeout(r, 2500))]).then(() => {
+    heroCollage.classList.replace('hc-wait', 'hc-play');
+  });
+}
+
 /* ---------- Page features loaded only where they are used ---------- */
 const locationPicker = $('[data-location-picker]');
 if (locationPicker) import('./location-picker.js').then((m) => m.initLocationPicker(locationPicker));
+const otp = $('[data-otp]');
+if (otp) import('./otp.js').then((m) => m.initOtp(otp));
 const authCharacters = $('[data-auth-characters]');
 if (authCharacters) import('./auth-characters.js').then((m) => m.initAuthCharacters(authCharacters));
 

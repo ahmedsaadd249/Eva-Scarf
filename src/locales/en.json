@@ -17,7 +17,6 @@
     "account": "Account",
     "search": "Search",
     "login": "Sign in",
-    "register": "Create account",
     "logout": "Sign out",
     "orders": "My orders",
     "profile": "My details",
@@ -31,7 +30,6 @@
     "hero_title": "Sudanese tarhas in every colour",
     "hero_sub": "Browse the whole collection and find the tarha that suits you.",
     "hero_cta": "Shop the collection",
-    "obsession": "Our current obsession",
     "view_all": "View all",
     "reviews_title": "From our customers"
   },
@@ -99,9 +97,8 @@
     "notice_reduced": "Only {qty} of {name} left, so we updated the quantity.",
     "notice_reduced_simple": "Only {qty} left, so we updated the quantity.",
     "delivery_pending": "Set by neighborhood",
-    "zone_from_profile": "Add your neighborhood in your account to see the delivery fee.",
-    "zone_login": "Sign in to see the delivery fee for your neighborhood.",
-    "free_delivery_gap": "{amount} more for free delivery."
+    "free_delivery_gap": "{amount} more for free delivery.",
+    "zone_at_checkout": "The delivery fee is worked out at checkout from your neighborhood."
   },
   "checkout": {
     "title": "Checkout",
@@ -118,13 +115,13 @@
     "error_changed": "Prices or quantities in your cart changed. Review your cart, then confirm again.",
     "error_stock": "There isn't enough stock of {name}. Update your cart and try again.",
     "choose_zone": "Choose your neighborhood from the list so we can work out delivery.",
-    "owner_account": "The store owner's account doesn't place orders. To try a purchase, use a customer account."
+    "owner_account": "The store owner's account doesn't place orders. To try a purchase, use a customer account.",
+    "not_sent": "The order wasn't sent. Check the fields marked in red.",
+    "cod_desc_short": "Pay the courier in cash when your order arrives."
   },
   "auth": {
-    "register_title": "Create your account",
-    "register_sub": "Sign up once to track your orders and save your delivery details.",
-    "login_title": "Welcome back",
-    "login_sub": "Sign in to follow your orders.",
+    "login_title": "Welcome",
+    "login_sub": "Enter your email.",
     "full_name": "Full name",
     "email": "Email",
     "password": "Password",
@@ -138,23 +135,7 @@
       "digit": "A number (0-9)",
       "symbol": "A symbol like ! @ # $"
     },
-    "create_account": "Create account",
-    "login": "Sign in",
-    "have_account": "Already have an account?",
-    "no_account": "New here?",
-    "forgot_link": "Forgot your password?",
-    "forgot_title": "Reset your password",
-    "forgot_sub": "Enter your email and we'll send you a link to set a new password.",
-    "send_link": "Send link",
-    "forgot_sent": "If an account exists for {email}, you'll get an email in a few minutes. The link works for one hour.",
-    "back_to_login": "Back to sign in",
-    "reset_title": "New password",
-    "reset_sub": "Choose a strong password for your account.",
-    "reset_invalid": "This link is invalid or has expired. Request a new one.",
-    "reset_save": "Save password",
-    "reset_done": "Your password was changed and you're signed in.",
-    "registered": "Welcome, {name}! Add your address and both phone numbers, then click \"Save details\".",
-    "privacy_note": "By creating an account you agree to our"
+    "login": "Sign in"
   },
   "profile": {
     "title": "My account",
@@ -261,10 +242,7 @@
   },
   "footer": {
     "tagline": "Sudanese tarhas in many different designs.",
-    "shop": "Shop",
-    "help": "Your account",
     "contact": "Contact us",
-    "follow": "Follow us",
     "rights": "© {year} Eva Scarf. All rights reserved.",
     "privacy": "Privacy policy"
   },
@@ -312,12 +290,12 @@
       "body": "Tap a number of stars to rate your order.",
       "hint": "It takes less than a minute."
     },
-    "reset": {
-      "subject": "Reset your password",
-      "heading": "Set a new password",
-      "body": "{name}, you asked to reset your password. This link works for one hour.",
-      "cta": "Set a new password",
-      "ignore": "If you didn't ask for this, ignore this email and your password won't change."
+    "code": {
+      "subject": "Your Eva Scarf sign-in code: {code}",
+      "heading": "Your sign-in code",
+      "body": "Use this code to confirm your email at Eva Scarf:",
+      "valid": "Valid for 10 minutes",
+      "ignore": "If you didn't ask for this code, ignore this email. Nobody can sign in without it."
     }
   },
   "admin": {
@@ -452,9 +430,9 @@
       "status_processing": "Processing",
       "status_shipped": "Shipped",
       "status_delivered": "Delivered + rating request",
-      "password-reset": "Password reset",
       "test": "Test email",
-      "generic": "Email"
+      "generic": "Email",
+      "login-code": "Sign-in code"
     },
     "delivery": "Delivery",
     "delivery_intro": "Delivery is charged by the customer's neighborhood. Neighborhoods without a fee are hidden from customers.",
@@ -569,5 +547,32 @@
   },
   "privacy": {
     "title": "Privacy Policy"
+  },
+  "code": {
+    "send": "Send code",
+    "sent_to": "We sent a sign-in code to",
+    "label": "Sign-in code",
+    "hint": "6 digits, valid for 10 minutes. Can't find it? Check your spam folder.",
+    "verify": "Confirm code",
+    "resend": "Send a new code",
+    "change_email": "Change email",
+    "step2_sub": "Type the code we emailed you.",
+    "sent": "We sent a sign-in code to {email}.",
+    "wait": "We sent a code to {email} a moment ago. Wait a minute before asking for a new one.",
+    "wrong": "That code isn't right. Check it and try again.",
+    "expired": "This code has expired or was already used. Ask for a new one.",
+    "owner_email": "This is the store owner's email. The dashboard has its own sign-in page.",
+    "checkout_title": "Your email",
+    "checkout_title_code": "Confirmation code",
+    "checkout_sub": "We send a code to confirm your email; that's where your order details and updates go.",
+    "signed_in_as": "Ordering as",
+    "verified": "Verified",
+    "verified_sub": "Your email is confirmed.",
+    "verified_secure": "Secure sign-in",
+    "too_many": "Too many codes were asked for this email. Please try again in an hour."
+  },
+  "owner_login": {
+    "title": "Store owner sign-in",
+    "sub": "Dashboard: email and password."
   }
 }

@@ -13,8 +13,11 @@ const authHeaders = String(serviceKey).startsWith('sb_')
   ? { apikey: serviceKey }
   : { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey };
 
-/** Origin to allow in the image Content-Security-Policy, or null. */
-export const storageOrigin = usesSupabaseStorage ? new URL(url).origin : null;
+/**
+ * Origin to allow in the image Content-Security-Policy, or null. Photos already in the bucket can be shown
+ * even where this copy of the site can't upload (no secret key).
+ */
+export const storageOrigin = url ? new URL(url).origin : null;
 
 export function newImageName(ext) {
   return `${Date.now().toString(36)}-${crypto.randomBytes(6).toString('base64url')}${ext}`;
