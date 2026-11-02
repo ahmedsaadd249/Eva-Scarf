@@ -4,7 +4,9 @@ import { sharedRateLimit } from '../rate-limit.js';
 import {
   accountHome, customersOnly, hashPassword, logIn, logOut, needsRehash, requireUser, safeNext, verifyPassword,
 } from '../auth.js';
-import { sendLoginCode, verifyLoginCode } from '../login-codes.js';
+import {
+  CODE_TTL_MS, maskEmail, sendLoginCode, sendOwnerCode, verifyLoginCode, verifyOwnerCode,
+} from '../login-codes.js';
 import { getOrder } from '../orders.js';
 import { checkProfile, saveProfile } from '../profile.js';
 import { deliverableZone, groupByCity, listZones } from '../zones.js';
@@ -105,27 +107,86 @@ for (const old of ['/account/register', '/account/forgot', '/account/reset/:toke
   router.all(old, (req, res) => res.redirect(301, '/account/login'));
 }
 
-// ---------- The store owner: email + password ----------
+// ---------- The store owner: email + password, then (when switched on) a code by email ----------
+const ownerLoginPage = (req, res, locals = {}) => res.page('account/owner-login', {
+  title: res.locals.t('owner_login.title'), values: {}, errors: {}, next: safeNext(req.query.next, ''), ...locals,
+});
+
 router.get('/admin/login', (req, res) => {
   if (req.user?.role === 'admin') return res.redirect(safeNext(req.query.next, '/admin'));
-  res.page('account/owner-login', { title: res.locals.t('owner_login.title'), values: {}, errors: {}, next: safeNext(req.query.next, '') });
+  ownerLoginPage(req, res);
 });
 
 router.post('/admin/login', authLimiter, ownerLoginLimiter, async (req, res) => {
   const email = normalizeEmail(req.body.email);
+  const next = safeNext(req.body.next, '');
   const user = email ? await get("SELECT * FROM users WHERE email = ? AND role = 'admin'", [email]) : null;
   const ok = await verifyPassword(String(req.body.password ?? ''), user?.password_hash ?? undefined);
-  if (!user || !ok) {
-    return res.status(422).page('account/owner-login', {
-      title: res.locals.t('owner_login.title'), values: { email }, errors: { form: 'errors.login_failed' }, next: safeNext(req.body.next, ''),
-    });
-  }
+  if (!user || !ok) return ownerLoginPage(req, res.status(422), { values: { email }, errors: { form: 'errors.login_failed' }, next });
   // Passwords saved with older, weaker hash settings are upgraded now that we have the plain text.
   if (needsRehash(user.password_hash)) {
     await run('UPDATE users SET password_hash = ? WHERE id = ?', [await hashPassword(String(req.body.password)), user.id]);
   }
+  if (user.otp_email) {
+    // Second step: the password was right, but nobody is signed in until the code sent to the owner's
+    // confirmed inbox is typed (so the password alone, or the link, opens nothing).
+    const sent = await sendOwnerCode(user, req.lang);
+    if (sent.error) return ownerLoginPage(req, res.status(429), { values: { email }, errors: { form: sent.error }, next });
+    req.session.ownerPending = { userId: user.id, next, until: Date.now() + CODE_TTL_MS };
+    if (sent.wait) req.flash('info', 'owner_login.code_wait');
+    return res.redirect('/admin/login/code');
+  }
   await logIn(req, user);
-  res.redirect(safeNext(req.body.next, '/admin'));
+  res.redirect(next || '/admin');
+});
+
+/** The owner waiting for their code: the password was right in this browser in the last 10 minutes. */
+async function pendingOwner(req) {
+  const pending = req.session.ownerPending;
+  if (!pending || pending.until < Date.now()) {
+    delete req.session.ownerPending;
+    return null;
+  }
+  const owner = await get("SELECT * FROM users WHERE id = ? AND role = 'admin'", [pending.userId]);
+  return owner?.otp_email ? owner : null;
+}
+
+router.get('/admin/login/code', async (req, res) => {
+  const owner = await pendingOwner(req);
+  if (!owner) return res.redirect('/admin/login');
+  const codeError = req.session.ownerCodeError;
+  delete req.session.ownerCodeError;
+  res.page('account/owner-code', { title: res.locals.t('owner_login.code_title'), maskedEmail: maskEmail(owner.otp_email), codeError });
+});
+
+// Like the customer code check: the page's script asks for JSON (to show the green tick); a plain post gets the redirect.
+router.post('/admin/login/code', authLimiter, async (req, res) => {
+  const json = req.accepts(['html', 'json']) === 'json';
+  const done = (ok, to) => (json ? res.json({ ok, redirect: to }) : res.redirect(to));
+  const owner = await pendingOwner(req);
+  if (!owner) return done(false, '/admin/login');
+  const error = await verifyOwnerCode(owner, req.body.code);
+  if (error === 'code.wrong') {
+    req.session.ownerCodeError = error;
+    return done(false, '/admin/login/code');
+  }
+  if (error) { // expired or used up: start again with the password
+    delete req.session.ownerPending;
+    req.flash('error', error);
+    return done(false, '/admin/login');
+  }
+  const next = req.session.ownerPending.next || '/admin';
+  await logIn(req, owner); // a fresh session: the waiting state is gone with the old one
+  done(true, next);
+});
+
+router.post('/admin/login/code/resend', authLimiter, async (req, res) => {
+  const owner = await pendingOwner(req);
+  if (!owner) return res.redirect('/admin/login');
+  const sent = await sendOwnerCode(owner, req.lang);
+  if (sent.error) req.session.ownerCodeError = sent.error;
+  else req.flash('success', sent.wait ? 'owner_login.code_wait' : 'owner_login.code_resent');
+  res.redirect('/admin/login/code');
 });
 
 router.post('/account/logout', async (req, res) => {

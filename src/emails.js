@@ -85,11 +85,16 @@ export function sendStatusEmail(orderId) {
   });
 }
 
-export function sendLoginCodeEmail(email, code, lang) {
+/**
+ * A one-time code: `kind` 'customer' (signing in to buy), 'owner' (the owner's second sign-in step) or
+ * 'owner-setup' (confirming the inbox the owner's codes go to).
+ */
+export function sendLoginCodeEmail(email, code, lang, kind = 'customer') {
+  const texts = { customer: 'email.code', owner: 'email.owner_code', 'owner-setup': 'email.owner_setup' }[kind];
   return queueMail(async () => {
-    const subject = helpersFor(lang).t('email.code.subject', { code });
-    const html = await render('login-code', { lang, subject, code });
-    await sendMail({ to: email, subject, html, type: 'login-code' });
+    const subject = helpersFor(lang).t(`${texts}.subject`, { code });
+    const html = await render('login-code', { lang, subject, code, texts });
+    await sendMail({ to: email, subject, html, type: kind === 'customer' ? 'login-code' : kind === 'owner' ? 'owner-code' : 'owner-setup' });
   });
 }
 

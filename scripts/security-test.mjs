@@ -124,19 +124,19 @@ async function main() {
     }
   }
   /** The newest sign-in code emailed to `email` since `since`, read from the test outbox. */
-  const latestCode = async (email, since = 0) => {
+  const latestCode = async (email, since = 0, type = 'login-code') => {
     for (let i = 0; i < 50; i++) {
       const dir = baseEnv.OUTBOX_DIR;
       const file = (fs.existsSync(dir) ? fs.readdirSync(dir) : [])
-        .filter((f) => f.endsWith(`-login-code-${email}.html`) && fs.statSync(path.join(dir, f)).mtimeMs >= since - 1000)
+        .filter((f) => f.endsWith(`-${type}-${email}.html`) && fs.statSync(path.join(dir, f)).mtimeMs >= since - 1000)
         .sort().pop();
       if (file) return /letter-spacing:10px[^>]*>(\d{6})</.exec(fs.readFileSync(path.join(dir, file), 'utf8'))[1];
       await new Promise((r) => setTimeout(r, 100));
     }
     throw new Error(`no code emailed to ${email}`);
   };
-  const codeEmails = (email) => (fs.existsSync(baseEnv.OUTBOX_DIR) ? fs.readdirSync(baseEnv.OUTBOX_DIR) : [])
-    .filter((f) => f.endsWith(`-login-code-${email}.html`)).length;
+  const codeEmails = (email, type = 'login-code') => (fs.existsSync(baseEnv.OUTBOX_DIR) ? fs.readdirSync(baseEnv.OUTBOX_DIR) : [])
+    .filter((f) => f.endsWith(`-${type}-${email}.html`)).length;
   const register = async (v, email, name = 'Test Customer') => {
     const res = await v.codeLogin(email);
     assert.equal(res.status, 302, `sign-in of ${email} failed (${res.status})`);
@@ -207,6 +207,13 @@ async function main() {
         assert.deepEqual([r.status, r.headers.get('location')], [301, '/privacy-policy'], old);
       }
       assert.ok(home.text_.includes('href="/privacy-policy"'), 'linked from every page (footer)');
+    });
+    await check('private pages tell search engines never to list them (X-Robots-Tag: noindex)', async () => {
+      for (const url of ['/admin/login', '/admin', '/account/login', '/cart', '/checkout']) {
+        const res = await new Visitor().request(url);
+        assert.match(res.headers.get('x-robots-tag') || '', /noindex/, url);
+      }
+      assert.equal((await new Visitor().request('/')).headers.get('x-robots-tag'), null, 'the shop itself stays findable');
     });
     await check('session cookie is HttpOnly and SameSite=Lax', () => {
       const cookie = home.headers.getSetCookie().find((c) => c.startsWith('eva.sid='));
@@ -425,6 +432,51 @@ async function main() {
       assert.equal(codeEmails(ADMIN.email), before, 'a code was emailed to the owner');
       assert.equal(await db.get('SELECT 1 FROM login_codes WHERE email = ?', [ADMIN.email]), null);
       assert.ok(isLoginRedirect(await v.request('/admin')));
+    });
+    /** Sign in as the owner when two-step sign-in is on: the password, then the code from the owner's inbox. */
+    const ownerWithCode = async (v) => {
+      const before = codeEmails('owner-inbox@example.com', 'owner-code');
+      await v.ownerLogin(ADMIN.email, ADMIN.password);
+      for (let i = 0; i < 50 && codeEmails('owner-inbox@example.com', 'owner-code') === before; i++) await new Promise((r) => setTimeout(r, 100));
+      return v.post('/admin/login/code', { code: await latestCode('owner-inbox@example.com', 0, 'owner-code') });
+    };
+    await check('with two-step sign-in on, the right password alone opens nothing', async () => {
+      await db.run("UPDATE users SET otp_email = 'owner-inbox@example.com' WHERE role = 'admin'");
+      try {
+        const v = new Visitor();
+        const since = Date.now();
+        const res = await v.ownerLogin(ADMIN.email, ADMIN.password);
+        assert.equal(res.headers.get('location'), '/admin/login/code');
+        assert.ok(isLoginRedirect(await v.request('/admin')), 'the dashboard opened with the password alone');
+        const code = await latestCode('owner-inbox@example.com', since, 'owner-code');
+        const stranger = new Visitor(); // the right code, typed in a browser that didn't give the password
+        assert.equal((await stranger.request('/admin/login/code')).headers.get('location'), '/admin/login');
+        await stranger.post('/admin/login/code', { code });
+        assert.ok(isLoginRedirect(await stranger.request('/admin')), 'the code alone opened the dashboard');
+        await v.post('/admin/login/code', { code: code === '000000' ? '111111' : '000000' });
+        assert.ok(isLoginRedirect(await v.request('/admin')), 'a wrong code opened the dashboard');
+        assert.equal((await v.post('/admin/login/code', { code })).headers.get('location'), '/admin');
+        assert.equal((await v.request('/admin')).status, 200, 'password + code should open it');
+      } finally {
+        await db.run("UPDATE users SET otp_email = NULL WHERE role = 'admin'");
+      }
+    });
+    await check('switching two-step sign-in off, or sending its codes elsewhere, needs the current password', async () => {
+      await db.run("UPDATE users SET otp_email = 'owner-inbox@example.com' WHERE role = 'admin'");
+      try {
+        const owner = new Visitor();
+        assert.equal((await ownerWithCode(owner)).headers.get('location'), '/admin');
+        const otpEmail = async () => (await db.get("SELECT otp_email FROM users WHERE role = 'admin'")).otp_email;
+        await owner.post('/admin/settings/otp/off', { off_password: 'Wrong#Pass123' });
+        assert.equal(await otpEmail(), 'owner-inbox@example.com', 'switched off without the password');
+        await owner.post('/admin/settings/otp', { otp_email: 'attacker@example.com', otp_password: 'Wrong#Pass123' });
+        await new Promise((r) => setTimeout(r, 300));
+        assert.equal(codeEmails('attacker@example.com', 'owner-setup'), 0, 'a confirmation code went to a new inbox without the password');
+        await owner.post('/admin/settings/otp/off', { off_password: ADMIN.password });
+        assert.equal(await otpEmail(), null);
+      } finally {
+        await db.run("UPDATE users SET otp_email = NULL WHERE role = 'admin'");
+      }
     });
     await check('owner sign-in: a wrong password and an unknown email get the same answer', async () => {
       const a = await new Visitor().ownerLogin(ADMIN.email, 'Wrong#Pass123');

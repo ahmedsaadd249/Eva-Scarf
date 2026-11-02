@@ -216,6 +216,12 @@ CREATE TABLE IF NOT EXISTS login_codes (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_login_codes_email ON login_codes(email);
+-- What a code is for: a customer signing in, the owner's second step after the password ('owner'), or
+-- confirming the inbox those owner codes go to ('owner-setup'). Codes of one kind never work for another.
+ALTER TABLE login_codes ADD COLUMN IF NOT EXISTS purpose text NOT NULL DEFAULT 'customer';
+-- The owner's second sign-in step: after the right password, a code is emailed to this confirmed inbox
+-- (it can differ from the sign-in email). NULL = switched off; set in Dashboard → Settings.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_email text;
 
 -- Supabase exposes the "public" schema through its auto-generated REST API. This store never uses
 -- that API (the server connects directly), so lock every table down: with row level security on and

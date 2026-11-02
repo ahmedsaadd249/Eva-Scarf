@@ -8,6 +8,7 @@ import { isSmtpConfigured } from '../mailer.js';
 import { getOrder, OrderError, setOrderStatus, STATUSES } from '../orders.js';
 import { clampDiscount, finalUnitPrice, piastersToInput, toPiasters } from '../pricing.js';
 import { getProductById, getProductImages, uniqueSlug } from '../products.js';
+import { CODE_TTL_MS, sendSetupCode, verifySetupCode } from '../login-codes.js';
 import { getOffer, invalidateOffers, listOffers, validateOffer } from '../offers.js';
 import { sharedRateLimit } from '../rate-limit.js';
 import { getZone, groupByCity, invalidateZones, listZones } from '../zones.js';
@@ -72,6 +73,7 @@ async function statusCounts() {
 router.get('/', async (req, res) => {
   adminPage(res, 'overview', {
     title: res.locals.t('admin.overview'),
+    otpOff: !req.user.otp_email,
     counts: await statusCounts(),
     revenue: await get("SELECT COALESCE(SUM(total), 0)::int AS total, COUNT(*)::int AS n FROM orders WHERE status = 'delivered'"),
     pending: await get("SELECT COALESCE(SUM(total), 0)::int AS total FROM orders WHERE status != 'delivered'"),
@@ -345,9 +347,18 @@ router.post('/products/:id/images/:imageId/main', async (req, res) => {
 });
 
 // ---------- Settings ----------
-async function settingsLocals(res) {
+async function settingsLocals(req, res) {
+  const setup = req.session.otpSetup;
+  const otpSetupError = req.session.otpSetupError;
+  delete req.session.otpSetupError;
   return {
     title: res.locals.t('admin.settings'),
+    // The owner's second sign-in step: on (codes go to otpEmail), or an inbox waiting to be confirmed.
+    otpEmail: req.user.otp_email,
+    otpPending: setup && setup.until > Date.now() ? setup.email : null,
+    otpSetupError,
+    otpErrors: {},
+    otpValues: {},
     smtpReady: isSmtpConfigured(),
     mailFrom: config.mailFrom,
     emailLog: await all('SELECT * FROM email_log ORDER BY id DESC LIMIT 12'),
@@ -358,14 +369,14 @@ async function settingsLocals(res) {
 }
 
 router.get('/settings', async (req, res) => {
-  adminPage(res, 'settings', await settingsLocals(res));
+  adminPage(res, 'settings', await settingsLocals(req, res));
 });
 
 router.post('/settings', async (req, res) => {
   const values = { store_email: normalizeEmail(req.body.store_email) };
   const errors = {};
   if (values.store_email && emailError(values.store_email)) errors.store_email = 'errors.email_invalid';
-  if (Object.keys(errors).length) return adminPage(res.status(422), 'settings', { ...(await settingsLocals(res)), values, errors });
+  if (Object.keys(errors).length) return adminPage(res.status(422), 'settings', { ...(await settingsLocals(req, res)), values, errors });
   await setSetting('store_email', values.store_email);
   req.flash('success', 'admin.settings_saved');
   res.redirect('/admin/settings');
@@ -387,12 +398,68 @@ router.post('/settings/password', passwordLimiter, async (req, res) => {
   if (passErr) errors.new_password = passErr;
   if (next !== String(req.body.new_password_confirm ?? '')) errors.new_password_confirm = 'errors.password_mismatch';
   if (Object.keys(errors).length) {
-    return adminPage(res.status(422), 'settings', { ...(await settingsLocals(res)), passwordErrors: errors });
+    return adminPage(res.status(422), 'settings', { ...(await settingsLocals(req, res)), passwordErrors: errors });
   }
   await run('UPDATE users SET password_hash = ? WHERE id = ?', [await hashPassword(next), req.user.id]);
   await endOtherSessions(req.user.id, req.sessionID); // signed out everywhere else
   req.flash('success', 'profile.password_changed');
   res.redirect('/admin/settings');
+});
+
+// ---------- The owner's second sign-in step (a code by email after the password) ----------
+// Switching it on: the current password, then a code sent to the new inbox proves the owner can read it
+// (so a typo can't lock them out). Changing the inbox works the same way; switching off needs the password.
+router.post('/settings/otp', passwordLimiter, async (req, res) => {
+  const otpValues = { otp_email: normalizeEmail(req.body.otp_email) };
+  const otpErrors = {};
+  if (!(await verifyPassword(String(req.body.otp_password ?? ''), req.user.password_hash))) otpErrors.otp_password = 'errors.password_current';
+  const emailErr = emailError(otpValues.otp_email);
+  if (emailErr) otpErrors.otp_email = emailErr;
+  if (!Object.keys(otpErrors).length) {
+    const sent = await sendSetupCode(otpValues.otp_email, req.lang);
+    if (sent.error) otpErrors.otp_email = sent.error;
+  }
+  if (Object.keys(otpErrors).length) {
+    return adminPage(res.status(422), 'settings', { ...(await settingsLocals(req, res)), otpErrors, otpValues });
+  }
+  req.session.otpSetup = { email: otpValues.otp_email, until: Date.now() + CODE_TTL_MS };
+  req.flash('success', 'admin.otp_code_sent', { email: otpValues.otp_email });
+  res.redirect('/admin/settings#otp');
+});
+
+router.post('/settings/otp/confirm', passwordLimiter, async (req, res) => {
+  const json = req.accepts(['html', 'json']) === 'json';
+  const done = (ok, to) => (json ? res.json({ ok, redirect: to }) : res.redirect(to));
+  const setup = req.session.otpSetup;
+  if (!setup || setup.until < Date.now()) {
+    delete req.session.otpSetup;
+    return done(false, '/admin/settings#otp');
+  }
+  const error = await verifySetupCode(setup.email, req.body.code);
+  if (error) {
+    if (error !== 'code.wrong') delete req.session.otpSetup; // expired or used up: send a new one
+    req.session.otpSetupError = error;
+    return done(false, '/admin/settings#otp');
+  }
+  await run('UPDATE users SET otp_email = ? WHERE id = ?', [setup.email, req.user.id]);
+  delete req.session.otpSetup;
+  await endOtherSessions(req.user.id, req.sessionID); // other devices sign in again, with a code this time
+  req.flash('success', 'admin.otp_on_done');
+  done(true, '/admin/settings#otp');
+});
+
+router.post('/settings/otp/cancel', (req, res) => {
+  delete req.session.otpSetup;
+  res.redirect('/admin/settings#otp');
+});
+
+router.post('/settings/otp/off', passwordLimiter, async (req, res) => {
+  if (!(await verifyPassword(String(req.body.off_password ?? ''), req.user.password_hash))) {
+    return adminPage(res.status(422), 'settings', { ...(await settingsLocals(req, res)), otpErrors: { off_password: 'errors.password_current' } });
+  }
+  await run('UPDATE users SET otp_email = NULL WHERE id = ?', [req.user.id]);
+  req.flash('success', 'admin.otp_off_done');
+  res.redirect('/admin/settings#otp');
 });
 
 // ---------- Offers (free delivery over an amount, buy X get Y free, % off the order) ----------

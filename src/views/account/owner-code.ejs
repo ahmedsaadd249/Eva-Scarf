@@ -1,0 +1,23 @@
+<%# The owner's second sign-in step: the password was right; the code sent to their confirmed inbox finishes it. %>
+<div class="mx-auto max-w-md px-4 pb-20 pt-10 md:pt-16">
+  <div class="rounded-card bg-white p-6 shadow-lift md:p-10">
+    <img src="/brand/monogram-pink.png" alt="" class="h-12 w-auto">
+    <h1 class="display mt-5 text-[30px] text-eva md:text-[34px]"><%= t('owner_login.code_title') %></h1>
+    <p class="mt-1 text-[15px] text-ink-soft"><%= t('owner_login.code_sub') %></p>
+    <p class="mt-5 rounded-xl bg-eva-mist px-4 py-3 text-[14px] leading-relaxed text-ink" data-code-sent>
+      <%= t('code.sent_to') %> <strong dir="ltr" class="font-medium"><%= maskedEmail %></strong>
+    </p>
+    <form action="/admin/login/code" method="post" class="mt-5 space-y-5" novalidate data-otp-form>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <%- include('../partials/code-field', { codeError: codeError, doneSub: t('owner_login.code_done') }) %>
+      <button class="press flex h-[52px] w-full items-center justify-center rounded-[10px] bg-ink text-white shadow-lift hover:bg-eva-deep active:bg-ink disabled:opacity-60"><span class="btn-label"><%= t('code.verify') %></span></button>
+    </form>
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-2 text-[14px]">
+      <form action="/admin/login/code/resend" method="post" data-once>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="text-eva-deep underline-offset-4 hover:underline"><%= t('code.resend') %></button>
+      </form>
+      <a href="/admin/login" class="text-ink-soft underline-offset-4 hover:underline"><%= t('owner_login.back') %></a>
+    </div>
+  </div>
+</div>

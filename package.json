@@ -19,6 +19,8 @@
     "test-email": "node scripts/test-email.js",
     "test:security": "node scripts/security-test.mjs",
     "db:copy-local": "node scripts/copy-local-to-supabase.js",
+    "owner:2fa-off": "node scripts/owner-2fa-off.js",
+    "owner:set": "node scripts/set-owner.js",
     "pree2e": "npm run build:css"
   },
   "engines": {

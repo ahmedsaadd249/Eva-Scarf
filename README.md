@@ -88,7 +88,7 @@ records) and send from an address on that domain rather than a Gmail address.
    | `MAIL_FROM` | `Eva Scarf <your-verified-sender@example.com>` |
    | `BASE_URL` | your site address, e.g. `https://eva-scarf.vercel.app` (or your own domain later) |
 
-4. Click **Deploy**. When it's done, open the site and sign in at `/account/login` with the owner account.
+4. Click **Deploy**. When it's done, open the site and sign in at `/admin/login` with the owner account.
 5. Later changes: push to GitHub and Vercel redeploys automatically.
 
 **Plan note:** Vercel's free Hobby plan is for non-commercial use. A store that sells products should be
@@ -112,7 +112,7 @@ npm run seed              # creates the owner account (add -- --samples for 14 d
 npm start                 # builds the styles, then http://localhost:3000
 ```
 
-The owner signs in at `/account/login` and lands on the dashboard at `/admin`.
+The owner signs in at `/admin/login` and lands on the dashboard at `/admin`.
 The page styles are built from the templates by Tailwind (`npm run build:css` → `public/css/tailwind.css`).
 `npm start` and `npm run e2e` build them first, and Vercel builds them on every deploy; run it yourself
 after changing classes in a template if the server is already running.
@@ -123,15 +123,15 @@ local database, stop the server first (it can only be open in one program at a t
 
 | Step | Details |
 |---|---|
-| Create an account | Name, email (must be a valid address with `@` and a domain), and a strong password: 8+ characters with upper and lower case, a number and a symbol. Checked live in the browser and again on the server. The login and sign-up pages have four animated characters that follow the pointer and react to the form (look at the email, turn shy for the password, peek when it is shown, look sad after wrong details). |
-| Welcome email | Sent once, the first time the customer saves a complete profile. |
+| Sign in with an email code | No account to create and no password. At checkout (or `/account/login`) the customer types an email and gets a 6-digit code by email: valid 10 minutes, works once, stops after 5 wrong tries, one a minute and five an hour per email; stored only as a hash. The code boxes show a Pac-Man eating the digits and a green tick when it's right. The first time an email signs in, a customer is created for it. The sign-in page has four animated characters that follow the pointer and look at the email field. |
+| Checkout details | On the checkout page itself: name, neighborhood (with the map), street, building, apartment and both phones, filled in from last time; the delivery fee updates as the neighborhood is chosen. |
+| Welcome email | Sent once, with the first order (the first time the details are saved). |
 | Profile | City and neighborhood chosen from the delivery list, then street, building number and apartment number (all required); a primary and a second phone number (both required, and they must differ). Arabic-Indic digits are accepted. Optionally, the customer pins the house on a map (search, "use my location", or drag the map under the pin, then "Confirm location"). Confirming fills in the street, building number and neighborhood from the map where it knows them (the apartment number is always typed). The point is saved with the profile and copied onto each order. |
-| Cart | Totals are calculated on the server: subtotal, discount, delivery fee (set by the neighborhood saved in the customer's account), total. Quantities can't exceed stock. |
+| Cart | Totals are calculated on the server: subtotal, discount, delivery fee (from the customer's neighborhood, chosen at checkout), total. Quantities can't exceed stock. |
 | Checkout | Cash on delivery. Stock is taken in one transaction, so two customers can't buy the last piece. |
 | Order confirmation email | Order number, every item **with its photo embedded in the email**, totals, address. |
 | Status emails | An email for each change: Processing → Shipped → Delivered. The Delivered email asks the customer to rate the order (1–5 stars + comment). |
 | My orders | Order history with a status timeline. |
-| Forgot password | Emailed reset link, valid for one hour. Resetting signs the account out everywhere else. |
 
 ## What the owner can do (`/admin`)
 
@@ -140,7 +140,11 @@ local database, stop the server first (it can only be open in one program at a t
 - **Products:** add/edit with an optional Arabic + English name (a tarha can have no name), description, photos (resized in the browser before upload), price, discount % and stock. Prices, discounts, stock and visibility can also be edited straight from the product list. **Bulk discount:** apply or remove a % for selected products or for everything. **Delete:** products that were never ordered are deleted; products in past orders are archived (hidden) so order history stays intact, and can be restored.
 - **Offers:** store-wide deals the owner adds like products and switches on or off: free delivery when the items cost at least a set amount, "buy X, get Y free" (the cheapest pieces are free), and a percentage off the order (on every order or above an amount). Switched-on offers apply to the cart automatically, show in a thin bar at the top of the store, and each order keeps a copy of the offers it used. Two start switched off: free delivery over 1,000 EGP, and buy 3 get the 4th free.
 - **Delivery:** neighborhoods grouped by city, each with its own delivery fee. A neighborhood with no fee is hidden from customers; 0 means free delivery. Add or delete neighborhoods here.
-- **Settings:** a contact email shown in the footer. The page also shows whether email sending is connected and the latest emails sent.
+- **Settings:** a contact email shown in the footer, the owner's password, and **two-step sign-in**: after the password, a 6-digit code is emailed to an inbox the owner confirms (it can differ from the sign-in email), so the password alone (or the link) opens nothing. Switching it on or changing the inbox needs the current password and a code sent to that inbox; switching off needs the password. The page also shows whether email sending is connected and the latest emails sent.
+
+**Owner sign-in:** `/admin/login` (email + password, at most 10 tries an hour per email and 20 per 15 minutes per
+visitor), then the emailed code when two-step sign-in is on. Lost access to that inbox? On a computer with the
+live `DATABASE_URL` in `.env`, run `npm run owner:2fa-off`, sign in with the password and set up a new inbox.
 
 ## Emails
 
@@ -157,15 +161,18 @@ configured. Then open **Products → Hidden** to price and publish them. Already
 ## Tests
 
 ```bash
-npm test         # unit tests: validation rules, pricing, orders (incl. two customers racing for the last piece), address lookup
+npm test         # unit tests: validation rules, pricing, orders (incl. two customers racing for the last piece),
+                 # address lookup, sign-in codes
 npm run e2e      # full browser run of every workflow (uses its own test owner account)
-npm run test:security  # 34 attack checks: CSRF, other people's orders, XSS, SQL injection, open redirects,
-                       # password guessing, price tampering, file access, production cookies/HTTPS headers
+npm run test:security  # attack checks: CSRF, other people's orders, XSS, SQL injection, open redirects, guessing
+                       # codes and the owner password, price tampering, file access, production cookies/HTTPS headers
 ```
 
 Both use a throwaway in-memory database, so they never touch real orders or products. `npm run e2e`
-checks the login characters, registers a customer, fills the profile and pins it on the map (against a stand-in address service), orders, then signs in as the owner, ships and delivers the
-order, rates it, prices a neighborhood, and adds/edits/discounts/deletes a product. Screenshots of
+checks the home collage and the sign-in characters, lets a guest buy with an email code (details and map pin on
+the checkout page, against a stand-in address service), then signs in as the owner, ships and delivers the
+order, rates it, prices a neighborhood, adds/edits/discounts/deletes a product, runs the offers, switches on
+two-step sign-in and signs in with a code, and lets a returning customer reorder with a fresh code. Screenshots of
 each step are saved in `temporary screenshots/`.
 
 ## Project layout
@@ -186,10 +193,10 @@ public/js/validation.js   validation rules shared by the browser and the server
 scripts/                  db:setup, migration, e2e and security tests, collection import, test email
 ```
 
-Security: passwords hashed with scrypt; CSRF tokens on every form; rate-limited sign-in, sign-up and
-reset; session cookies are httpOnly, SameSite and Secure in production; all SQL is parameterised;
+Security: customers have no password (one-time email codes, stored hashed); the owner's password is hashed
+with scrypt, with an optional emailed code as a second step; CSRF tokens on every form; rate-limited sign-in
+and codes, counted in the database; private pages carry `X-Robots-Tag: noindex`; session cookies are httpOnly, SameSite and Secure in production; all SQL is parameterised;
 uploads are checked by content, not just file name; the dashboard is restricted to the owner role on
 the server; database tables are closed to Supabase's public API.
 
-The pages use the Tailwind CDN script, as required by the project's design rules. It works in
-production but logs a console notice; switching to a Tailwind CLI build later is a contained change.
+The page styles are built with the Tailwind CLI at deploy time (no CDN script).

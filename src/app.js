@@ -52,6 +52,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// Private pages (the dashboard and its sign-in, accounts, cart, checkout, address lookups): search engines
+// must never list them. robots.txt also asks them not to visit.
+app.use(['/admin', '/account', '/cart', '/checkout', '/api'], (req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  next();
+});
+
 const staticOpts = { maxAge: config.isProd ? '7d' : 0 };
 app.use(express.static(path.join(ROOT, 'public'), staticOpts));
 app.use('/uploads', express.static(config.uploadsDir, staticOpts)); // local photos (production uses Supabase Storage)

@@ -296,6 +296,20 @@
       "body": "Use this code to confirm your email at Eva Scarf:",
       "valid": "Valid for 10 minutes",
       "ignore": "If you didn't ask for this code, ignore this email. Nobody can sign in without it."
+    },
+    "owner_code": {
+      "subject": "Your dashboard sign-in code: {code}",
+      "heading": "Dashboard sign-in code",
+      "body": "Someone signed in to the Eva Scarf dashboard with your correct password. This is the code to finish:",
+      "valid": "Valid for 10 minutes",
+      "ignore": "If this wasn't you, someone knows your password: change it in Settings right away. They can't get in without this code."
+    },
+    "owner_setup": {
+      "subject": "Confirm the email for sign-in codes: {code}",
+      "heading": "Confirm this email",
+      "body": "To switch on two-step sign-in for the Eva Scarf dashboard, type this code:",
+      "valid": "Valid for 10 minutes",
+      "ignore": "If you didn't ask for this, ignore this email."
     }
   },
   "admin": {
@@ -432,7 +446,9 @@
       "status_delivered": "Delivered + rating request",
       "test": "Test email",
       "generic": "Email",
-      "login-code": "Sign-in code"
+      "login-code": "Sign-in code",
+      "owner-code": "Dashboard sign-in code",
+      "owner-setup": "Confirming the sign-in code email"
     },
     "delivery": "Delivery",
     "delivery_intro": "Delivery is charged by the customer's neighborhood. Neighborhoods without a fee are hidden from customers.",
@@ -506,7 +522,25 @@
     "offer_activated": "“{name}” is on; customers see it within seconds.",
     "offer_deactivated": "“{name}” is off.",
     "offer_deleted": "Offer “{name}” deleted. Past orders are unchanged.",
-    "confirm_offer_delete": "Delete the offer “{name}” permanently? Past orders don’t change."
+    "confirm_offer_delete": "Delete the offer “{name}” permanently? Past orders don’t change.",
+    "otp_title": "Two-step sign-in",
+    "otp_intro": "After the password we email you a code, so nobody can open the dashboard with the password alone.",
+    "otp_on": "On: sign-in codes go to",
+    "otp_off": "Off: signing in needs only the password.",
+    "otp_email": "Email for the codes",
+    "otp_email_hint": "A real inbox you always have access to. It can differ from your sign-in email.",
+    "otp_send": "Send a confirmation code",
+    "otp_change": "Change the email",
+    "otp_code_sent": "We sent a confirmation code to {email}.",
+    "otp_confirm_note": "Type the code to switch two-step sign-in on.",
+    "otp_done_sub": "Two-step sign-in is on.",
+    "otp_cancel": "Cancel",
+    "otp_on_done": "Two-step sign-in is on. Every sign-in will ask for a code.",
+    "otp_turn_off": "Turn two-step sign-in off",
+    "otp_off_done": "Two-step sign-in is off.",
+    "otp_off_confirm": "Turn off two-step sign-in? The password alone will then open the dashboard.",
+    "otp_nudge": "For more safety, switch on two-step sign-in: a code to your email at every sign-in.",
+    "otp_nudge_cta": "Switch on"
   },
   "geo": {
     "title": "Pin your location on the map",
@@ -561,7 +595,6 @@
     "wait": "We sent a code to {email} a moment ago. Wait a minute before asking for a new one.",
     "wrong": "That code isn't right. Check it and try again.",
     "expired": "This code has expired or was already used. Ask for a new one.",
-    "owner_email": "This is the store owner's email. The dashboard has its own sign-in page.",
     "checkout_title": "Your email",
     "checkout_title_code": "Confirmation code",
     "checkout_sub": "We send a code to confirm your email; that's where your order details and updates go.",
@@ -573,6 +606,12 @@
   },
   "owner_login": {
     "title": "Store owner sign-in",
-    "sub": "Dashboard: email and password."
+    "sub": "Dashboard: email and password.",
+    "code_title": "Verification code",
+    "code_sub": "Your password is right. Type the code we emailed you to finish signing in.",
+    "code_done": "Opening the dashboard…",
+    "code_resent": "We sent a new code.",
+    "code_wait": "We sent a code a moment ago. Wait a minute before asking for a new one.",
+    "back": "Back"
   }
 }

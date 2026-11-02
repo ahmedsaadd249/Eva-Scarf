@@ -88,7 +88,14 @@ export function initOtp(root) {
     // No answer (offline, or too many tries): send the form the ordinary way so the server's page shows.
     if (!result) return form.submit();
     if (result.ok && !reduceMotion) await celebrate();
-    window.location.assign(result.redirect);
+    go(result.redirect);
+  }
+
+  /** Open the next page. For this same page, without its #section: a #-only change would just scroll. */
+  function go(to) {
+    const target = new URL(to, window.location.href);
+    if (target.pathname === window.location.pathname && target.search === window.location.search) target.hash = '';
+    window.location.assign(target.href);
   }
 
   input.addEventListener('input', () => {

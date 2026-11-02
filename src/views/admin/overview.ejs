@@ -1,5 +1,14 @@
 <h1 class="display text-[34px] text-eva md:text-[42px]"><%= t('admin.overview') %></h1>
 
+<% if (otpOff) { %>
+  <%# Until the owner switches on the second sign-in step, a reminder (only the owner sees this page). %>
+  <a href="/admin/settings#otp" class="press mt-5 flex items-center gap-3 rounded-card bg-warn-soft px-4 py-3.5 text-[14px] text-warn hover:shadow-soft active:opacity-80" data-otp-nudge>
+    <%- include('../partials/icon', { name: 'lock', cls: 'h-5 w-5 shrink-0' }) %>
+    <span class="flex-1"><%= t('admin.otp_nudge') %></span>
+    <span class="shrink-0 font-medium underline underline-offset-4"><%= t('admin.otp_nudge_cta') %></span>
+  </a>
+<% } %>
+
 <div class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
   <% ['processing', 'shipped', 'delivered'].forEach(function (s) { %>
     <a href="/admin/orders?status=<%= s %>" class="press block rounded-card bg-white p-4 shadow-soft hover:shadow-lift active:scale-[.99] md:p-5">

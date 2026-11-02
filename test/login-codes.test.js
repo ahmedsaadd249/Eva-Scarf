@@ -10,18 +10,20 @@ process.env.PGLITE_DIR = 'memory://login-codes-test';
 process.env.SMTP_HOST = '';
 process.env.OUTBOX_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'eva-codes-'));
 const { closeDb, get, run } = await import('../src/db.js');
-const { cleanCode, sendLoginCode, verifyLoginCode, MAX_ATTEMPTS } = await import('../src/login-codes.js');
+const {
+  cleanCode, maskEmail, sendLoginCode, sendOwnerCode, sendSetupCode, verifyLoginCode, verifyOwnerCode, verifySetupCode, MAX_ATTEMPTS,
+} = await import('../src/login-codes.js');
 after(async () => {
   await closeDb();
   fs.rmSync(process.env.OUTBOX_DIR, { recursive: true, force: true });
 });
 
-const codeFiles = (email) => fs.readdirSync(process.env.OUTBOX_DIR).filter((f) => f.endsWith(`-login-code-${email}.html`)).sort();
+const codeFiles = (email, type) => fs.readdirSync(process.env.OUTBOX_DIR).filter((f) => f.endsWith(`-${type}-${email}.html`)).sort();
 
-/** The code in email number `nth` (1 = the first) to `email` (the database only has its hash). */
-async function emailedCode(email, nth = 1) {
+/** The code in email number `nth` (1 = the first) of `type` to `email` (the database only has its hash). */
+async function emailedCode(email, nth = 1, type = 'login-code') {
   for (let i = 0; i < 50; i++) {
-    const file = codeFiles(email)[nth - 1];
+    const file = codeFiles(email, type)[nth - 1];
     if (file) return /letter-spacing:10px[^>]*>(\d{6})</.exec(fs.readFileSync(path.join(process.env.OUTBOX_DIR, file), 'utf8'))[1];
     await new Promise((r) => setTimeout(r, 50));
   }
@@ -104,4 +106,33 @@ test('at most 5 codes an hour for one email (so codes cannot be guessed by askin
   assert.deepEqual(await sendLoginCode('busy@example.com', 'ar'), { error: 'code.too_many' });
   await run("UPDATE login_codes SET created_at = now() - interval '61 minutes' WHERE email = 'busy@example.com'"); // an hour later
   assert.deepEqual(await sendLoginCode('busy@example.com', 'ar'), { email: 'busy@example.com' });
+});
+
+test("the owner's codes and customers' codes never mix", async () => {
+  const owner = { otp_email: 'mix@example.com' };
+  assert.deepEqual(await sendOwnerCode(owner, 'ar'), { email: 'mix@example.com' });
+  const ownerCode = await emailedCode('mix@example.com', 1, 'owner-code');
+  assert.deepEqual(await verifyLoginCode('mix@example.com', ownerCode, 'ar'), { error: 'code.expired' }, 'an owner code signs no customer in');
+  assert.equal(await get("SELECT 1 FROM users WHERE email = 'mix@example.com'"), null);
+  // A customer code to the same address neither replaces nor unlocks the owner's code.
+  await sendLoginCode('mix@example.com', 'ar');
+  const customerCode = await emailedCode('mix@example.com');
+  if (customerCode !== ownerCode) assert.equal(await verifyOwnerCode(owner, customerCode), 'code.wrong');
+  assert.equal(await verifyOwnerCode(owner, ownerCode), null, 'the owner code still works');
+  assert.equal(await verifyOwnerCode(owner, ownerCode), 'code.expired', 'once');
+  assert.ok((await verifyLoginCode('mix@example.com', customerCode, 'ar')).user, 'and the customer code is untouched');
+});
+
+test('confirming an inbox for the owner: its own code, refused for sign-in', async () => {
+  assert.deepEqual(await sendSetupCode('no-at-sign', 'ar'), { error: 'errors.email_invalid' });
+  assert.deepEqual(await sendSetupCode(' Box@Example.com ', 'ar'), { email: 'box@example.com' });
+  const code = await emailedCode('box@example.com', 1, 'owner-setup');
+  assert.equal(await verifyOwnerCode({ otp_email: 'box@example.com' }, code), 'code.expired', 'a setup code is not a sign-in code');
+  assert.equal(await verifySetupCode('box@example.com', code), null);
+  assert.equal(await verifySetupCode('box@example.com', code), 'code.expired', 'once');
+});
+
+test('maskEmail shows just enough to recognise the inbox', () => {
+  assert.equal(maskEmail('aljaly440@gmail.com'), 'a•••0@gmail.com');
+  assert.equal(maskEmail('ab@x.com'), 'a•••@x.com');
 });
