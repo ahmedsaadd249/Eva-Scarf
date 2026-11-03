@@ -87,6 +87,8 @@ function showToast(text, tone = 'success') {
 }
 
 /* ---------- Add to cart without leaving the page ---------- */
+// Other scripts (the home slideshow, the cart panel) announce the new count with a 'cart:count' event.
+window.addEventListener('cart:count', (e) => setCartCount(e.detail));
 function setCartCount(count) {
   $$('[data-cart-count]').forEach((badge) => {
     badge.textContent = count;
@@ -290,18 +292,11 @@ if (checkoutForm && zoneSelect) {
   });
 }
 
-/* ---------- Home: play the collage once its photos have loaded (at most 3 s wait) ---------- */
-const heroCollage = $('[data-hero-collage]');
-if (heroCollage) {
-  const loaded = $$('img', heroCollage).map((img) => (img.complete ? Promise.resolve() : new Promise((r) => { img.addEventListener('load', r, { once: true }); img.addEventListener('error', r, { once: true }); })));
-  Promise.race([Promise.all(loaded), new Promise((r) => setTimeout(r, 2500))]).then(() => {
-    heroCollage.classList.replace('hc-wait', 'hc-play');
-  });
-}
-
 /* ---------- Page features loaded only where they are used ---------- */
 const locationPicker = $('[data-location-picker]');
 if (locationPicker) import('./location-picker.js').then((m) => m.initLocationPicker(locationPicker));
+const heroCollage = $('[data-hero-collage]');
+if (heroCollage) import('./hero-slideshow.js').then((m) => m.initHeroCollage(heroCollage));
 const otp = $('[data-otp]');
 if (otp) import('./otp.js').then((m) => m.initOtp(otp));
 const authCharacters = $('[data-auth-characters]');

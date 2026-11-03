@@ -148,11 +148,48 @@ try {
   const collage = await page.$$eval('.hc a.hc-centre, .hc a.hc-side', (as) => as.map((a) => a.getAttribute('href')));
   assert.equal(collage.length, 3, 'three photos in the collage');
   assert.deepEqual([...collage].sort(), newest.map((s) => `/product/${s}`).sort(), 'the three newest tarhas');
-  assert.equal(await page.$eval('.hc-centre', (a) => a.getAttribute('href')), `/product/${newest[0]}`, 'the newest one in the middle');
+  // The page as the server sends it (the slideshow may already have turned on screen): newest in the middle.
+  const servedHome = await (await fetch(`${BASE}/`)).text();
+  const servedMiddle = /<a href="([^"]+)" data-hc-card[^>]*class="hc-card hc-centre /.exec(servedHome)?.[1];
+  assert.equal(servedMiddle, `/product/${newest[0]}`, 'the newest one starts in the middle');
   await page.waitForFunction(() => getComputedStyle(document.querySelector('.hc-cta')).opacity === '1', { timeout: 6000 });
   assert.equal(await page.$('#featured-title'), null, 'no "most wanted" section');
   ok(`the collage plays and shows the 3 newest tarhas (${newest.join(', ')}), the newest in the middle`);
   await shot(page, 'home', false);
+
+  section('Home: the collage turns by itself; a tapped photo goes into the cart and the big cart opens');
+  await page.waitForSelector('[data-hero-collage].hc-done', { timeout: 8000 });
+  const middle = () => page.$eval('.hc-centre', (a) => a.getAttribute('href'));
+  assert.equal(await page.$('[data-hc-controls], [data-hc-dot], [data-hc-next], [data-hc-prev]'), null, 'no arrows or dots');
+  await page.hover('[data-hc-stage]'); // pointing at it doesn't stop it
+  const firstMiddle = await middle();
+  const turnStart = Date.now();
+  await page.waitForFunction((was) => document.querySelector('.hc-centre')?.getAttribute('href') !== was, { timeout: 4000 }, firstMiddle);
+  const turnMs = Date.now() - turnStart;
+  assert.equal(await middle(), `/product/${newest[(newest.indexOf(firstMiddle.replace('/product/', '')) + 1) % 3]}`, 'the next tarha comes to the middle');
+  ok(`it moves on by itself, one tarha at a time (next turn after ${turnMs} ms)`);
+  const sideCard = await page.$('.hc-card.hc-side-end');
+  const tappedId = await sideCard.evaluate((a) => a.dataset.productId);
+  await sideCard.evaluate((a) => a.click()); // that exact photo, even if the slideshow is mid-turn
+  await page.waitForSelector('.cp-layer.cp-open', { timeout: 5000 });
+  await page.waitForFunction(() => !document.querySelector('.hc-zoom'), { timeout: 4000 }); // the photo has landed
+  assert.equal(new URL(page.url()).pathname, '/', 'still on the home page');
+  assert.ok(await page.$(`.cp-panel [data-cart-line="${tappedId}"]`), 'the tapped tarha is in the cart panel');
+  assert.equal(await page.$eval('[data-cart-count]', (el) => el.textContent.trim()), '1', 'cart badge');
+  assert.ok(await page.$('.cp-panel a[href="/checkout"]'), '"Complete order" in the panel');
+  ok('tapping a photo puts that tarha in the cart: the photo grows and the big cart panel opens');
+  await shot(page, 'home-cart-panel', false);
+  await page.$eval(`.cp-panel [data-cart-line="${tappedId}"] button[value="2"]`, (b) => b.click());
+  await page.waitForFunction(() => document.querySelector('[data-cart-count]')?.textContent.trim() === '2', { timeout: 4000 });
+  await page.$eval(`.cp-panel [data-cart-line="${tappedId}"] form[action="/cart/remove"] button`, (b) => b.click());
+  await page.waitForFunction(() => !document.querySelector('.cp-panel [data-cart-line]'), { timeout: 4000 });
+  ok('+ and remove work inside the panel (the page never reloads)');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.cp-layer'), { timeout: 3000 });
+  assert.equal(await page.$$eval('[data-hc-card]', (cs) => cs.filter((c) => c.style.visibility === 'hidden').length), 0);
+  const afterPanel = await middle();
+  await page.waitForFunction((was) => document.querySelector('.hc-centre')?.getAttribute('href') !== was, { timeout: 4000 }, afterPanel);
+  ok('Esc closes it, and the slideshow carries on')
 
   // ---------------------------------------------------------------- sign-in page
   section('Sign-in page: email then code, characters still react');

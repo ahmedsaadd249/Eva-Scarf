@@ -206,8 +206,9 @@ body {
 }
 
 /* ---- Home hero collage (partials/hero-collage.ejs): builds itself once, transform and opacity only ----
-   The page starts with the collage hidden ("hc-wait"); app.js starts the animation ("hc-play") once the
-   photos have loaded, so it isn't over before they appear. Without the script it shows after 3 seconds. */
+   The page starts with the collage hidden ("hc-wait"); hero-slideshow.js starts the animation ("hc-play") once
+   the photos have loaded, so it isn't over before they appear, then ends it ("hc-done") and starts the
+   slideshow. Without the script it shows after 3 seconds and stays still. */
 .hc-wait :is(.hc-panel, .hc-title, .hc-centre, .hc-side, .hc-cta) { opacity: 0; animation: hc-show 0s 3s forwards; }
 @keyframes hc-show { to { opacity: 1; } }
 .hc-play :is(.hc-panel, .hc-title, .hc-centre, .hc-side, .hc-cta) { opacity: 0; animation: hc-fade .9s var(--ease-out) forwards; }
@@ -227,6 +228,15 @@ body {
 [dir="rtl"] .hc { --hc-dir: -1; }
 @media (prefers-reduced-motion: reduce) {
   .hc :is(.hc-panel, .hc-title, .hc-centre, .hc-side, .hc-cta) { opacity: 1 !important; animation: none !important; }
+}
+/* The slideshow: a card's size and place come from its slot class (middle, end side = next, start side =
+   previous); the script swaps the classes and animates the move. */
+.hc-card { flex-shrink: 0; order: 0; width: 27%; }
+.hc-card.hc-centre { order: 1; z-index: 1; width: 46%; box-shadow: 0 2px 4px rgba(139, 24, 90, .06), 0 14px 34px -14px rgba(139, 24, 90, .26); }
+.hc-card.hc-side-end { order: 2; }
+@media (min-width: 768px) {
+  .hc-card { width: 24%; }
+  .hc-card.hc-centre { width: 34%; }
 }
 
 /* ---- Sign-in code (partials/code-signin.ejs, public/js/otp.js): six boxes, Pac-Man, green tick ---- */
@@ -278,3 +288,22 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .otp-box, .otp-box .otp-digit, .otp-boxes, .otp-tick, .otp-done-title, .otp-done-sub, .otp-done-lock { animation: none !important; transition: none !important; }
 }
+
+/* Tapping a home photo (hero-slideshow.js): a copy of it lifts off, grows in the middle of the screen and
+   flies into the cart panel. Transform and opacity only. */
+.hc-zoom { position: fixed; inset: 0; z-index: 200; overflow: hidden; pointer-events: none; }
+.hc-zoom-photo { position: absolute; border-radius: 14px; object-fit: cover; transform-origin: 0 0; will-change: transform; box-shadow: 0 18px 48px -18px rgba(43, 26, 36, .45); }
+
+/* The big cart panel (cart-panel.js): slides in from the end side (the left in Arabic) over a dimmed page;
+   the whole screen on phones. */
+.cp-locked, .cp-locked body { overflow: hidden; }
+.cp-layer { position: fixed; inset: 0; z-index: 150; }
+.cp-backdrop { position: absolute; inset: 0; background: rgba(43, 26, 36, .45); opacity: 0; transition: opacity .35s ease; }
+.cp-dim .cp-backdrop { opacity: 1; }
+.cp-panel {
+  position: absolute; inset-block: 0; inset-inline-end: 0; display: flex; flex-direction: column; width: min(560px, 100%);
+  background: #FAF5F1; box-shadow: 0 0 60px -12px rgba(43, 26, 36, .35); outline: none;
+  transform: translateX(calc(100% * var(--cp-dir, 1))); transition: transform .45s cubic-bezier(.16, 1, .3, 1);
+}
+[dir="rtl"] .cp-layer { --cp-dir: -1; }
+.cp-open .cp-panel { transform: none; }

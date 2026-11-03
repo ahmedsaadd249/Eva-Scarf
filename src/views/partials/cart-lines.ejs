@@ -1,0 +1,42 @@
+<%#
+  The cart's lines (photo, name, price, quantity − / +, remove): the cart page and the big cart panel
+  (cart-panel.ejs). The forms post to /cart/update and /cart/remove; the panel sends them in the background.
+  Locals: lines (from loadCart).
+%>
+<ul class="divide-y divide-line border-y border-line">
+  <% lines.forEach(function (line) { const p = line.product; const pn = pname(p); %>
+    <li class="flex gap-4 py-5" data-cart-line="<%= p.id %>">
+      <a href="/product/<%= p.slug %>" class="relative block w-[88px] shrink-0 overflow-hidden rounded-[10px] bg-sand md:w-[104px]" tabindex="-1" aria-hidden="true">
+        <% if (p.image) { %><img src="<%= p.image %>" alt="" class="aspect-[3/4] w-full object-cover"><% } else { %><span class="block aspect-[3/4]" style="background: <%= p.swatch %>"></span><% } %>
+      </a>
+      <div class="flex min-w-0 flex-1 flex-col">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <% if (pn) { %><a href="/product/<%= p.slug %>" class="display text-[20px] leading-snug text-eva-deep hover:underline"><%= pn %></a><% } %>
+            <p class="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-[14px] text-ink-soft">
+              <span class="num"><%= money(line.unit_final) %></span>
+              <% if (line.discount_percent) { %><s class="num text-ink-faint"><%= money(line.price) %></s><span class="num text-eva-deep" dir="ltr">-<%= line.discount_percent %>%</span><% } %>
+            </p>
+          </div>
+          <p class="num shrink-0 text-[16px] font-medium"><%= money(line.line_total) %></p>
+        </div>
+        <div class="mt-auto flex items-center justify-between gap-3 pt-3">
+          <form action="/cart/update" method="post" class="flex h-11 items-center rounded-[10px] border border-line bg-white">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="product_id" value="<%= p.id %>">
+            <button name="qty" value="<%= line.qty - 1 %>" class="press grid h-full w-11 place-items-center rounded-s-[10px] hover:bg-eva-blush/60 active:bg-eva-blush" aria-label="<%= t('product.decrease') %>"><%- include('icon', { name: 'minus', cls: 'h-4 w-4' }) %></button>
+            <span class="num w-8 text-center text-[16px]" aria-label="<%= t('product.qty') %>"><%= line.qty %></span>
+            <button name="qty" value="<%= line.qty + 1 %>" class="press grid h-full w-11 place-items-center rounded-e-[10px] hover:bg-eva-blush/60 active:bg-eva-blush disabled:opacity-35 disabled:hover:bg-transparent" aria-label="<%= t('product.increase') %>" <%= line.qty >= Math.min(p.stock, 20) ? 'disabled' : '' %>><%- include('icon', { name: 'plus', cls: 'h-4 w-4' }) %></button>
+          </form>
+          <form action="/cart/remove" method="post">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="product_id" value="<%= p.id %>">
+            <button class="press flex h-11 items-center gap-1.5 rounded-full px-3 text-[14px] text-ink-soft hover:bg-eva-blush/60 hover:text-eva-deep active:bg-eva-blush" aria-label="<%= t('cart.remove_named', { name: plabel(p) }) %>">
+              <%- include('icon', { name: 'trash', cls: 'h-[18px] w-[18px]' }) %><span><%= t('cart.remove') %></span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </li>
+  <% }) %>
+</ul>

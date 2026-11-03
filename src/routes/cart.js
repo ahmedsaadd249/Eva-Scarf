@@ -11,6 +11,15 @@ router.get('/cart', async (req, res) => {
   res.page('shop/cart', { title: res.locals.t('cart.title'), lines, totals, notices, zone });
 });
 
+// The big cart panel's content (public/js/cart-panel.js): the same lines and totals as the cart page.
+router.get('/cart/panel', async (req, res) => {
+  const { lines, totals, notices, zone } = await loadCart(req);
+  res.render('partials/cart-panel', { ...res.locals, lines, totals, notices, zone }, (err, html) => {
+    if (err) return res.status(500).send('');
+    res.set('Cache-Control', 'no-store').send(html);
+  });
+});
+
 router.post('/cart/add', async (req, res) => {
   const { t, plabel } = res.locals;
   const id = Math.trunc(Number(req.body.product_id));
@@ -42,19 +51,22 @@ router.post('/cart/update', async (req, res) => {
   const product = await getProductById(id);
   if (!product) {
     setCartQty(req, id, 0); // unknown product: never store it in the cart
-    return res.redirect('/cart');
+    return wantsJson(req) ? res.json({ ok: true, count: cartCount(req) }) : res.redirect('/cart');
   }
   let qty = Math.trunc(Number(req.body.qty) || 0);
   if (qty > product.stock) {
     qty = product.stock;
-    req.flash('info', 'cart.notice_reduced_simple', { qty });
+    if (!wantsJson(req)) req.flash('info', 'cart.notice_reduced_simple', { qty });
   }
   setCartQty(req, id, qty);
+  // The cart panel sends these in the background and then reloads its content.
+  if (wantsJson(req)) return res.json({ ok: true, count: cartCount(req) });
   res.redirect('/cart');
 });
 
 router.post('/cart/remove', (req, res) => {
   setCartQty(req, Math.trunc(Number(req.body.product_id)), 0);
+  if (wantsJson(req)) return res.json({ ok: true, count: cartCount(req) });
   res.redirect('/cart');
 });
 
