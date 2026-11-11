@@ -10,6 +10,10 @@ export default [
   },
   js.configs.recommended,
   {
+    // `const { a, ...rest } = obj` is how the code leaves keys out of an object: `a` is unused on purpose.
+    rules: { 'no-unused-vars': ['error', { ignoreRestSiblings: true }] },
+  },
+  {
     // The server, scripts, tests and the Cloudflare Worker (which runs with Node's APIs, nodejs_compat).
     files: ['**/*.{js,mjs,cjs}'],
     ignores: ['public/js/**'],
