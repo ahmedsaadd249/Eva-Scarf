@@ -10,6 +10,11 @@ export const countSentLastHour = async (email, purpose) => (await get(`
   SELECT COUNT(*)::int AS n FROM login_codes
   WHERE email = ? AND purpose = ? AND created_at > now() - interval '1 hour'`, [email, purpose])).n;
 
+/** Codes of this kind sent in the last 24 hours to anyone (the store-wide daily cap). */
+export const countSentLastDay = async (purpose) => (await get(`
+  SELECT COUNT(*)::int AS n FROM login_codes
+  WHERE purpose = ? AND created_at > now() - interval '1 day'`, [purpose])).n;
+
 /** Only the newest code works: retire the ones still waiting. */
 export const retireUnused = (email, purpose) => run(
   'UPDATE login_codes SET used = 1 WHERE email = ? AND purpose = ? AND used = 0',

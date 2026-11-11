@@ -20,6 +20,9 @@ const baseEnv = {
   SUPABASE_URL: '',
   SUPABASE_SERVICE_ROLE_KEY: '',
   SMTP_HOST: '',
+  BREVO_API_KEY: '', // emails go to the test outbox, never out
+  CODE_SEND_LIMIT: '1000', // every simulated visitor shares one address here (test/code-limits.test.js checks this limit)
+  CODE_EMAILS_PER_DAY: '100000',
   UPLOADS_DIR: path.join(TMP, 'uploads'),
   OUTBOX_DIR: path.join(TMP, 'outbox'),
   ADMIN_EMAIL: ADMIN.email,

@@ -58,6 +58,11 @@ export const authLimiter = sharedRateLimit('auth', {
   windowMs: 15 * MINUTE_MS, limit: config.rateLimits.auth, handler: tooManyPage,
 });
 
+/** Sending sign-in codes (each one is an email): per visitor, on top of authLimiter; a customer needs one or two. */
+export const codeSendLimiter = sharedRateLimit('code-send', {
+  windowMs: HOUR_MS, limit: config.rateLimits.codeSends, handler: tooManyPage,
+});
+
 /** The owner's password: also per email, wherever the tries come from, so guesses spread over many addresses still add up. */
 export const ownerLoginLimiter = sharedRateLimit('owner-login', {
   windowMs: HOUR_MS,

@@ -2,8 +2,8 @@
   <% order.items.forEach(function (item) { %>
   <tr>
     <td width="76" valign="top" style="padding:14px 0;width:76px;">
-      <% if (item.cid) { %>
-        <img src="cid:<%= item.cid %>" width="64" height="85" alt="<%= L(item, 'name') || t('product.this_tarha') %>" style="display:block;width:64px;height:85px;object-fit:cover;border-radius:10px;border:0;">
+      <% if (item.imgSrc) { %>
+        <img src="<%= item.imgSrc %>" width="64" height="85" alt="<%= L(item, 'name') || t('product.this_tarha') %>" style="display:block;width:64px;height:85px;object-fit:cover;border-radius:10px;border:0;">
       <% } else { %>
         <div style="width:64px;height:85px;border-radius:10px;background:<%= item.swatch || '#E8339A' %>;"></div>
       <% } %>

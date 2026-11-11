@@ -63,8 +63,12 @@ public API (row level security), so only the store's server can read or change t
 ### 3. Brevo: sending the emails
 1. Sign up at <https://www.brevo.com> (free plan: 300 emails/day).
 2. Add and verify your sender address: **Senders, domains & dedicated IPs → Senders → Add a sender**, then confirm the code Brevo emails you.
-3. **Settings → SMTP & API → SMTP** tab: note the **login** (like `1234567@smtp-brevo.com`) and click **Generate a new SMTP key**.
-4. Check it from this computer: add the values to `.env` (see `.env.example`), then
+3. **Settings → SMTP & API → API Keys** tab: **Generate a new API key** (name it `eva-scarf`) and copy it. This is
+   what the live site uses: Cloudflare Workers can't send over SMTP (Brevo's connection gets closed), but they can
+   call Brevo's HTTPS API. If the dashboard's email log later shows `Brevo API 401 … unrecognised IP address`,
+   open **Security → Authorised IPs** and deactivate IP blocking (Cloudflare's addresses change all the time).
+4. Optional, for scripts on this computer: the **SMTP** tab's **login** (like `1234567@smtp-brevo.com`) and an
+   **SMTP key** also work from Node. Check whichever you put in `.env` (see `.env.example`) with
    `npm run test-email -- you@example.com`.
 
 For the best inbox placement, later add your own domain in Brevo (it walks you through the DNS
@@ -93,13 +97,15 @@ Worker starts, and each request gets its own database connection through **Hyper
    |---|---|
    | `SESSION_SECRET` | a long random string (40+ characters) |
    | `SUPABASE_SERVICE_ROLE_KEY` | from Supabase (step 2) |
-   | `SMTP_USER` | Brevo SMTP login |
-   | `SMTP_PASS` | Brevo SMTP key |
+   | `BREVO_API_KEY` | Brevo API key (step 3); emails are sent through Brevo's API |
    | `MAIL_FROM` | your verified Brevo sender |
+   | `SMTP_USER`, `SMTP_PASS` | optional: Brevo SMTP login and key (not used once `BREVO_API_KEY` is set) |
 
    Add or change one with `npx wrangler secret put NAME` (it asks for the value). Plain settings (`BASE_URL`,
    `SUPABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `STORE_TIMEZONE`) are under `"vars"` in `wrangler.jsonc`.
-   `SMTP_PORT` must stay `587`: Cloudflare can't open Brevo's port 465.
+   The Worker refuses to start without `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `BASE_URL`,
+   `MAIL_FROM` and a way to send email (`BREVO_API_KEY`, or the SMTP settings), and names what's missing in
+   `npx wrangler tail shop`.
 5. Deploy: `npm run deploy` (builds the styles and the template bundle, then uploads). Watch live requests and
    errors with `npx wrangler tail shop`.
 6. Later changes: run the tests, `npm run deploy`, and push to GitHub to keep the code there too.
@@ -114,7 +120,8 @@ Domains & Routes → Add → Custom domain**; Cloudflare issues the certificate 
 `wrangler.jsonc` and deploy.
 
 **Running the Worker locally** (Cloudflare's runtime on this computer; uses the live database):
-create `.dev.vars` with `SESSION_SECRET=…`, `SUPABASE_SERVICE_ROLE_KEY=…` and `BASE_URL=http://localhost:8787`,
+create `.dev.vars` with `SESSION_SECRET=…`, `SUPABASE_SERVICE_ROLE_KEY=…`, `BASE_URL=http://localhost:8787`,
+`MAIL_FROM=…` and `BREVO_API_KEY=…`,
 set `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` to your `DATABASE_URL` with `?sslmode=require`
 added, then `npm run cf:dev`. Everyday development doesn't need this: `npm start` runs the same app on Node.
 
@@ -168,9 +175,27 @@ live `DATABASE_URL` in `.env`, run `npm run owner:2fa-off`, sign in with the pas
 
 ## Emails
 
-Until SMTP is configured, every email is **saved to `./outbox`** instead of being sent: a `.html` file
-to open in a browser and a `.eml` file (the real message, with images embedded) for Outlook or
-Windows Mail. On Cloudflare, configure Brevo (step 3 above), since there is no outbox folder to look in.
+Emails go through Brevo's API when `BREVO_API_KEY` is set (the live site), otherwise over SMTP when the
+`SMTP_*` settings are set. With neither, every email is **saved to `./outbox`** instead of being sent: a
+`.html` file to open in a browser and a `.eml` file (the real message, with images embedded) for Outlook or
+Windows Mail. Brevo's API can't embed images, so emails sent through it show the logo and product photos from
+the store's address (`BASE_URL`). Every attempt, with the reason when it fails, is listed in
+**Dashboard → Settings**.
+
+Limits against abuse: one visitor can ask for at most 10 sign-in codes an hour (`CODE_SEND_LIMIT`), and the
+whole store sends at most 200 customer sign-in codes a day (`CODE_EMAILS_PER_DAY`), which keeps room in
+Brevo's free 300 a day for order and status emails. Raise it on a paid Brevo plan. The owner's codes don't count.
+
+### Database certificate
+
+Supabase signs its database certificates with its own root, which computers don't trust out of the box. To
+let the local site and the npm scripts check that they really reach Supabase, download it once:
+Supabase → **Project Settings → Database → SSL Configuration → Download certificate**, save the file it
+gives you (`prod-ca-2021.crt`) in the project folder (it's public, safe to commit), and add
+`DATABASE_CA_FILE=prod-ca-2021.crt` to `.env`. Until then those connections are encrypted but unchecked (a
+warning says so). The live site connects through Hyperdrive; it can check the certificate too
+(`--sslmode=verify-full` with the same certificate uploaded by `npx wrangler cert upload certificate-authority`;
+see Cloudflare's Hyperdrive docs).
 
 ## Adding photos in bulk
 

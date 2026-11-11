@@ -5,6 +5,7 @@
 //   with a code sent to their confirmed inbox (users.otp_email).
 // Every kind of code ("purpose") gets the same protection, and a code of one kind never works for another.
 import crypto from 'node:crypto';
+import { config } from '../config/index.js';
 import { DAY_MS, MINUTE_MS } from '../config/constants.js';
 import * as codeRepo from '../repositories/login-codes.js';
 import * as userRepo from '../repositories/users.js';
@@ -73,6 +74,9 @@ export async function sendLoginCode(rawEmail, lang) {
   // The owner signs in at /admin/login. Answer as for anyone else (so the form doesn't reveal which email
   // is the owner's), but send no code.
   if (user?.role === 'admin') return { email };
+  // A store-wide daily cap, so a script asking for codes for made-up addresses can't use up the day's
+  // emails (sign-in, orders, status updates). The owner's codes aren't counted: the owner can always sign in.
+  if ((await codeRepo.countSentLastDay('customer')) >= config.rateLimits.codeEmailsPerDay) return { error: 'code.busy' };
   return issueCode(email, 'customer', (code) => sendLoginCodeEmail(email, code, user?.lang || lang));
 }
 

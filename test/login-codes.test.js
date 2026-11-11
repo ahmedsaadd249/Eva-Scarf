@@ -8,6 +8,7 @@ import path from 'node:path';
 process.env.DATABASE_URL = '';
 process.env.PGLITE_DIR = 'memory://login-codes-test';
 process.env.SMTP_HOST = '';
+process.env.BREVO_API_KEY = ''; // never send real email from a test, whatever .env holds
 process.env.OUTBOX_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'eva-codes-'));
 const { closeDb, get, run } = await import('../src/lib/db.js');
 const {

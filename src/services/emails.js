@@ -1,7 +1,9 @@
 import path from 'node:path';
 import { config } from '../config/index.js';
 import { helpersFor, LANGS } from '../lib/i18n.js';
-import { imageSource, LOGO_CID, queueMail, sendMail } from './mailer.js';
+import {
+  embedsImages, imageSource, imageUrl, LOGO_CID, LOGO_PATH, queueMail, sendMail,
+} from './mailer.js';
 import { getOrder } from './orders.js';
 import { renderTemplate } from '../lib/templates.js';
 import { allZones, formatAddress } from './zones.js';
@@ -21,7 +23,8 @@ async function render(template, data) {
     ...data,
     lang,
     baseUrl: config.baseUrl,
-    logoCid: LOGO_CID,
+    // Embedded with the message (cid:), or linked on the web when the sender can't embed images.
+    logoSrc: embedsImages ? `cid:${LOGO_CID}` : imageUrl(LOGO_PATH),
     align: h.dir === 'rtl' ? 'right' : 'left',
     alignEnd: h.dir === 'rtl' ? 'left' : 'right',
     address: (record) => formatAddress(record, lang, zones),
@@ -33,15 +36,23 @@ async function render(template, data) {
   return renderTemplate('emails/_layout', { ...locals, body });
 }
 
-/** Attach each order item's image inline so it shows in the email even when the site isn't public. */
-function itemAttachments(order) {
+/**
+ * Each order item's photo for the email (item.imgSrc): attached and shown inline where the sender can embed
+ * images, so it shows even when the site isn't public; otherwise linked on the web. Returns the attachments.
+ */
+function itemImages(order) {
   const attachments = [];
   order.items.forEach((item, i) => {
+    if (!embedsImages) {
+      item.imgSrc = imageUrl(item.image);
+      return;
+    }
     const src = imageSource(item.image);
     if (!src) return;
-    item.cid = `item${i}@evascarf`;
+    const cid = `item${i}@evascarf`;
+    item.imgSrc = `cid:${cid}`;
     const ext = path.extname(String(item.image).split('?')[0]) || '.jpg';
-    attachments.push({ filename: `tarha-${i + 1}${ext}`, path: src, cid: item.cid });
+    attachments.push({ filename: `tarha-${i + 1}${ext}`, path: src, cid });
   });
   return attachments;
 }
@@ -65,7 +76,7 @@ export function sendOrderConfirmation(orderId) {
   return queueMail(async () => {
     const order = await getOrder('id', orderId);
     const lang = await orderLang(order);
-    const attachments = itemAttachments(order);
+    const attachments = itemImages(order);
     const subject = helpersFor(lang).t('email.order.subject', { no: order.order_no });
     const html = await render('order-confirmation', { lang, subject, order });
     await sendMail({ to: order.customer_email, subject, html, attachments, type: 'order-confirmation' });
@@ -76,7 +87,7 @@ export function sendStatusEmail(orderId) {
   return queueMail(async () => {
     const order = await getOrder('id', orderId);
     const lang = await orderLang(order);
-    const attachments = itemAttachments(order);
+    const attachments = itemImages(order);
     const subject = helpersFor(lang).t(`email.status.${order.status}.subject`, { no: order.order_no });
     const html = await render('status-update', { lang, subject, order });
     await sendMail({ to: order.customer_email, subject, html, attachments, type: `status-${order.status}` });

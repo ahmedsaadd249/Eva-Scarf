@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as account from '../controllers/account.js';
 import * as ownerLogin from '../controllers/owner-login.js';
 import { customersOnly, requireUser } from '../middlewares/auth.js';
-import { authLimiter, ownerLoginLimiter } from '../middlewares/rate-limit.js';
+import { authLimiter, codeSendLimiter, ownerLoginLimiter } from '../middlewares/rate-limit.js';
 
 const router = Router();
 
@@ -14,7 +14,7 @@ router.get('/account', requireUser, account.home);
 
 // Customers: sign in with a code sent by email (also used by checkout).
 router.get('/account/login', account.loginPage);
-router.post('/account/code/send', authLimiter, account.sendCode);
+router.post('/account/code/send', authLimiter, codeSendLimiter, account.sendCode);
 router.post('/account/code/verify', authLimiter, account.verifyCode);
 router.post('/account/code/change', account.changeEmail);
 router.post('/account/logout', account.logout);

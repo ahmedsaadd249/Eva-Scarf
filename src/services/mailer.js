@@ -1,3 +1,9 @@
+// Sending email, three ways:
+// - Brevo's HTTP API when BREVO_API_KEY is set. This is what Cloudflare must use: a Worker's SMTP
+//   connection to Brevo gets closed before anything is sent ("Connection closed unexpectedly").
+// - SMTP (Nodemailer) when SMTP_HOST / SMTP_USER / SMTP_PASS are set: fine from Node (local, scripts).
+// - Otherwise the message is saved to ./outbox (.eml + .html preview) so every flow can be tested locally.
+// Every attempt is written to the email_log table (Dashboard → Settings shows the latest).
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -7,9 +13,13 @@ import * as emailLogRepo from '../repositories/email-log.js';
 import { keepAlive, readBinary } from '../lib/platform.js';
 
 const ERROR_TEXT_MAX = 500; // characters of a failure kept in the email log
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
+const BREVO_TIMEOUT_MS = 15_000;
+
+const brevoReady = Boolean(config.brevoApiKey);
 const smtpReady = Boolean(config.smtp.host && config.smtp.user && config.smtp.pass);
 
-const transport = smtpReady
+const transport = !brevoReady && smtpReady
   ? nodemailer.createTransport({
       host: config.smtp.host,
       port: config.smtp.port,
@@ -18,15 +28,27 @@ const transport = smtpReady
     })
   : null;
 
+if (config.onCloudflare && !brevoReady) {
+  console.warn('[mail] BREVO_API_KEY is not set: emails go over SMTP, which Cloudflare Workers cannot use. Add the key with `npx wrangler secret put BREVO_API_KEY`.');
+}
+
 // Builds the real MIME message without sending it; used for the local outbox.
 const previewTransport = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: 'windows' });
 
 export const LOGO_CID = 'logo@evascarf';
+export const LOGO_PATH = '/brand/email-monogram.png'; // under public/, so also at baseUrl + LOGO_PATH
 let logo = null; // the logo's bytes, read once (from disk, or from the Worker's bundle)
-const logoBytes = () => (logo ??= readBinary('public/brand/email-monogram.png'));
+const logoBytes = () => (logo ??= readBinary(`public${LOGO_PATH}`));
 
+/**
+ * Brevo's API can't carry images inside the message (no cid: attachments), so emails sent through it
+ * link to the logo and product photos on the web instead. SMTP and the outbox embed them.
+ */
+export const embedsImages = !brevoReady;
+
+/** True when emails are really sent (Brevo API or SMTP), false when they're saved to the outbox. */
 export function isSmtpConfigured() {
-  return smtpReady;
+  return brevoReady || smtpReady;
 }
 
 /** The latest emails sent or failed, newest first (Dashboard → Settings). */
@@ -40,6 +62,12 @@ export function imageSource(webPath) {
     ? path.join(config.uploadsDir, path.basename(webPath))
     : path.join(ROOT, 'public', path.normalize(webPath).replace(/^([/\\])+/, ''));
   return fs.existsSync(disk) ? disk : null;
+}
+
+/** The web address of a stored image, for emails that link to images instead of embedding them. */
+export function imageUrl(webPath) {
+  if (!webPath) return null;
+  return /^https?:\/\//.test(webPath) ? webPath : `${config.baseUrl}${webPath.startsWith('/') ? '' : '/'}${webPath}`;
 }
 
 function htmlToText(html) {
@@ -81,10 +109,38 @@ async function writeToOutbox(message, type) {
   return `${base}.html`;
 }
 
-/**
- * Send an email. Without SMTP settings the message is written to ./outbox
- * (.eml with inline images + .html preview) so every flow can be tested locally.
- */
+/** "Eva Scarf <shop@example.com>" → { name: 'Eva Scarf', email: 'shop@example.com' }. */
+export function parseAddress(address) {
+  const match = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(address);
+  if (!match) return { email: address.trim() };
+  return match[1] ? { name: match[1], email: match[2].trim() } : { email: match[2].trim() };
+}
+
+/** Send through Brevo's transactional email API (plain HTTPS, which works everywhere, Cloudflare included). */
+async function sendWithBrevoApi(message) {
+  const res = await fetch(BREVO_API_URL, {
+    method: 'POST',
+    headers: { 'api-key': config.brevoApiKey, 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({
+      sender: parseAddress(message.from),
+      to: [{ email: message.to }],
+      subject: message.subject,
+      htmlContent: message.html,
+      textContent: message.text,
+    }),
+    signal: AbortSignal.timeout(BREVO_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`Brevo API ${res.status}: ${(await res.text()).slice(0, ERROR_TEXT_MAX)}`);
+}
+
+/** The whole reason a send failed: Nodemailer's code and step, and what the mail server answered. */
+function describeError(err) {
+  const where = [err.code, err.command].filter(Boolean).join(' ');
+  const reply = err.response ? ` (server: ${String(err.response).trim()})` : '';
+  return `${where ? `[${where}] ` : ''}${err.message}${reply}`;
+}
+
+/** Send an email; returns true when it was sent (or saved to the outbox). */
 export async function sendMail({ to, subject, html, attachments = [], type = 'generic' }) {
   const message = {
     from: config.mailFrom,
@@ -92,20 +148,25 @@ export async function sendMail({ to, subject, html, attachments = [], type = 'ge
     subject,
     html,
     text: htmlToText(html),
-    attachments: [{ filename: 'eva-scarf.png', content: logoBytes(), contentType: 'image/png', cid: LOGO_CID }, ...attachments],
+    attachments: embedsImages
+      ? [{ filename: 'eva-scarf.png', content: logoBytes(), contentType: 'image/png', cid: LOGO_CID }, ...attachments]
+      : [],
   };
   try {
-    if (transport) {
+    if (brevoReady) {
+      await sendWithBrevoApi(message);
+    } else if (transport) {
       await transport.sendMail(message);
     } else {
       const file = await writeToOutbox(message, type);
-      console.log(`[mail] SMTP not configured, saved ${type} email to ${path.relative(ROOT, file)}`);
+      console.log(`[mail] Email sending not configured, saved ${type} email to ${path.relative(ROOT, file)}`);
     }
     await emailLogRepo.logSent(to, type);
     return true;
   } catch (err) {
-    console.error(`[mail] ${type} to ${to} failed:`, err.message);
-    await emailLogRepo.logFailed(to, type, String(err.message).slice(0, ERROR_TEXT_MAX))
+    const reason = describeError(err).slice(0, ERROR_TEXT_MAX);
+    console.error(`[mail] ${type} to ${to} failed:`, reason);
+    await emailLogRepo.logFailed(to, type, reason)
       .catch((logErr) => console.error('[mail] could not log failure:', logErr.message));
     return false;
   }

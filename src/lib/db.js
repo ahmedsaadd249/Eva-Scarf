@@ -97,6 +97,18 @@ const requestDriver = {
   close: async () => {},
 };
 
+/**
+ * TLS for a remote database (Supabase from this computer: the local site and the npm scripts). Supabase
+ * signs its certificates with its own root, which computers don't trust out of the box, so the server is
+ * checked against that root when DATABASE_CA_FILE points at it. Without it the connection is still
+ * encrypted, but a network in between could pretend to be the database.
+ */
+function remoteTls() {
+  if (config.databaseCaFile) return { ca: fs.readFileSync(config.databaseCaFile, 'utf8') };
+  console.warn('[db] DATABASE_CA_FILE is not set, so the database certificate is not checked (see README, "Database certificate").');
+  return { rejectUnauthorized: false };
+}
+
 async function openPool() {
   const url = new URL(config.databaseUrl);
   const local = ['localhost', '127.0.0.1'].includes(url.hostname);
@@ -104,7 +116,7 @@ async function openPool() {
   const pool = new pg.Pool({
     connectionString: url.toString(),
     max: config.dbPoolMax,
-    ssl: local ? false : { rejectUnauthorized: false },
+    ssl: local ? false : remoteTls(),
     idleTimeoutMillis: 10_000,
   });
   return {

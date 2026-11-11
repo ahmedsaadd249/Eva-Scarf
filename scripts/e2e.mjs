@@ -51,6 +51,9 @@ Object.assign(process.env, {
   UPLOADS_DIR: path.join(TMP, 'uploads'),
   OUTBOX_DIR: path.join(TMP, 'outbox'),
   SMTP_HOST: '',
+  BREVO_API_KEY: '', // emails go to the test outbox, never out
+  CODE_SEND_LIMIT: '1000', // every simulated visitor shares one address here
+  CODE_EMAILS_PER_DAY: '100000',
   NODE_ENV: 'development',
   AUTH_RATE_LIMIT: '100',
   NOMINATIM_URL,

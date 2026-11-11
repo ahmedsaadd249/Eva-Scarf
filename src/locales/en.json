@@ -603,7 +603,8 @@
     "verified": "Verified",
     "verified_sub": "Your email is confirmed.",
     "verified_secure": "Secure sign-in",
-    "too_many": "Too many codes were asked for this email. Please try again in an hour."
+    "too_many": "Too many codes were asked for this email. Please try again in an hour.",
+    "busy": "Too many sign-in requests right now. Please try again a little later."
   },
   "owner_login": {
     "title": "Store owner sign-in",

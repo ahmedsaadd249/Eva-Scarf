@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 // A throwaway in-memory Postgres; must be set before the app modules are imported.
 process.env.DATABASE_URL = '';
 process.env.PGLITE_DIR = 'memory://orders-test';
+process.env.SMTP_HOST = ''; // never send real email from a test, whatever .env holds
+process.env.BREVO_API_KEY = '';
 const { closeDb, get, run } = await import('../src/lib/db.js');
 const { placeOrder: placeOrderFor, setOrderStatus, getOrder, OrderError } = await import('../src/services/orders.js');
 const { invalidateOffers } = await import('../src/services/offers.js');

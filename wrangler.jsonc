@@ -1,5 +1,5 @@
 // Cloudflare Workers settings for the store. Deploy with `npm run deploy` (= npx wrangler deploy).
-// Secrets (SESSION_SECRET, SUPABASE_SERVICE_ROLE_KEY, SMTP_USER, SMTP_PASS, MAIL_FROM) are NOT here:
+// Secrets (SESSION_SECRET, SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY, MAIL_FROM) are NOT here:
 // they're stored at Cloudflare with `npx wrangler secret put NAME`.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
@@ -38,7 +38,8 @@
     "STORE_TIMEZONE": "Africa/Cairo",
     "SUPABASE_URL": "https://glifpnavvppkkbxfptwk.supabase.co",
     "SMTP_HOST": "smtp-relay.brevo.com",
-    // 587 with STARTTLS. Tested on Cloudflare's runtime: 587 logs in to Brevo, 465 can't connect there.
+    // SMTP isn't used on Cloudflare once BREVO_API_KEY is set: a Worker's SMTP connection to Brevo gets
+    // closed before anything is sent, so emails go through Brevo's HTTPS API instead.
     "SMTP_PORT": "587"
   },
 

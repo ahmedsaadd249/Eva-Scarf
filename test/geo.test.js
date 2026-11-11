@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 // a short spacing between requests so the test stays fast, and a known contact address.
 process.env.DATABASE_URL = '';
 process.env.PGLITE_DIR = 'memory://geo-test';
+process.env.SMTP_HOST = ''; // never send real email from a test, whatever .env holds
+process.env.BREVO_API_KEY = '';
 process.env.NOMINATIM_URL = 'https://nominatim.test/';
 process.env.GEO_MIN_INTERVAL_MS = '150';
 process.env.MAIL_FROM = 'Eva Scarf <shop@example.com>';

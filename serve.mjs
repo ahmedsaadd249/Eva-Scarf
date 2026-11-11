@@ -5,5 +5,5 @@ import { isSmtpConfigured } from './src/services/mailer.js';
 
 app.listen(config.port, () => {
   console.log(`Eva Scarf running at ${config.baseUrl}`);
-  if (!isSmtpConfigured()) console.log('SMTP is not configured: emails are saved to ./outbox instead of being sent.');
+  if (!isSmtpConfigured()) console.log('Email sending is not configured: emails are saved to ./outbox instead of being sent.');
 });
