@@ -1,20 +1,16 @@
-// Delivery neighborhoods ("zones"): each has its own delivery fee.
-// The list is small and changes rarely, so it's cached briefly and cleared when the owner edits it
-// (other running copies of the site pick up the change within CACHE_TTL_MS).
-import { all, CACHE_TTL_MS } from '../lib/db.js';
+// Delivery neighborhoods ("zones"): each has its own delivery fee, or none (not delivered to yet).
+// The list is small and changes rarely, so it's cached briefly and cleared when the owner edits it.
 import { localized, translate } from '../lib/i18n.js';
+import { tx } from '../lib/db.js';
+import * as zoneRepo from '../repositories/zones.js';
+import { ttlCache } from '../utils/ttl-cache.js';
 
-let cache = { at: 0, rows: null };
+const cache = ttlCache(() => zoneRepo.listAll());
 
-export async function allZones() {
-  if (!cache.rows || Date.now() - cache.at > CACHE_TTL_MS) {
-    cache = { at: Date.now(), rows: await all('SELECT * FROM zones ORDER BY sort_order, id') };
-  }
-  return cache.rows;
-}
+export const allZones = () => cache.get();
 
 export function invalidateZones() {
-  cache.rows = null;
+  cache.invalidate();
 }
 
 export async function listZones({ deliverableOnly = false } = {}) {
@@ -55,4 +51,30 @@ export function placeOf(record, lang, zones) {
 
 export function formatAddress(record, lang, zones) {
   return translate(lang, 'address.format', { ...record, ...placeOf(record, lang, zones) });
+}
+
+// ---------- The owner's edits (dashboard → Delivery) ----------
+
+/** `updates`: [[fee or null, zoneId], …], saved together. */
+export async function saveFees(updates) {
+  await tx(async (t) => {
+    for (const [fee, id] of updates) await zoneRepo.setFee(id, fee, t);
+  });
+  invalidateZones();
+}
+
+export const zoneExists = (cityAr, nameAr) => zoneRepo.exists(cityAr, nameAr);
+
+/** Add a neighborhood at the end of the list. One in a city that already exists reuses that city's English name. */
+export async function addZone({ city_ar, name_ar, name_en, fee }) {
+  const city_en = await zoneRepo.cityEnglishName(city_ar);
+  const sort_order = await zoneRepo.nextSortOrder();
+  await zoneRepo.insert({ city_ar, city_en, name_ar, name_en, fee, sort_order });
+  invalidateZones();
+}
+
+/** Customers who chose it are asked to pick another neighborhood; past orders keep the name. */
+export async function removeZone(id) {
+  await zoneRepo.remove(id);
+  invalidateZones();
 }

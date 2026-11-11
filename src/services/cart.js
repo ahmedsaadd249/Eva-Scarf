@@ -1,78 +1,65 @@
-import { computeTotals } from './pricing.js';
+// The shopping cart: { [productId]: qty }, kept in the visitor's session (the caller passes it in).
+import { MAX_QTY_PER_ITEM } from '../config/constants.js';
 import { activeOffers } from './offers.js';
+import { computeTotals } from './pricing.js';
 import { getProductsByIds } from './products.js';
 import { deliverableZone } from './zones.js';
 
-export const MAX_QTY_PER_ITEM = 20;
+export { MAX_QTY_PER_ITEM };
 
-/** The cart lives in the session as { [productId]: qty }. */
-export function getCart(req) {
-  if (!req.session.cart || typeof req.session.cart !== 'object') req.session.cart = {};
-  return req.session.cart;
+export function cartCount(cart) {
+  return Object.values(cart ?? {}).reduce((sum, qty) => sum + qty, 0);
 }
 
-export function cartCount(req) {
-  return Object.values(req.session.cart ?? {}).reduce((sum, qty) => sum + qty, 0);
-}
-
-export function setCartQty(req, productId, qty) {
-  const cart = getCart(req);
+export function setCartQty(cart, productId, qty) {
   const n = Math.trunc(Number(qty) || 0);
   if (n <= 0) delete cart[productId];
   else cart[productId] = Math.min(n, MAX_QTY_PER_ITEM);
 }
 
+/** One cart line for an available product, or why it was dropped or lowered. Updates `cart` to match. */
+function checkLine(cart, id, qty, product) {
+  if (!product || !product.is_active || product.is_archived) {
+    delete cart[id];
+    return { notice: product ? { key: 'cart.notice_unavailable', product } : null };
+  }
+  if (product.stock <= 0) {
+    delete cart[id];
+    return { notice: { key: 'cart.notice_sold_out', product } };
+  }
+  if (qty <= product.stock) return { qty };
+  cart[id] = product.stock;
+  return { qty: product.stock, notice: { key: 'cart.notice_reduced', product, qty: product.stock } };
+}
+
 /**
- * Load cart lines with live product data. Products that were unpublished or sold
- * out are removed, and quantities above stock are lowered; each change is reported
- * in `notices` so the customer sees why the cart changed. Delivery is priced for the customer's saved
- * neighborhood, or for `zoneId` when given.
+ * Cart lines with live product data. Products that were unpublished or sold out are removed, and
+ * quantities above stock are lowered; each change is reported in `notices` so the customer sees why
+ * the cart changed. Delivery is priced for `zoneId` when given (checkout, while choosing), otherwise
+ * for the customer's saved neighborhood (`userZoneId`; none for guests).
  */
-export async function loadCart(req, { zoneId } = {}) {
-  const cart = getCart(req);
+export async function loadCart(cart, { userZoneId, zoneId } = {}) {
   const products = await getProductsByIds(Object.keys(cart));
   const byId = new Map(products.map((p) => [String(p.id), p]));
   const lines = [];
   const notices = [];
 
-  for (const [id, qty] of Object.entries(cart)) {
-    const p = byId.get(id);
-    if (!p || !p.is_active || p.is_archived) {
-      delete cart[id];
-      if (p) notices.push({ key: 'cart.notice_unavailable', product: p });
-      continue;
-    }
-    if (p.stock <= 0) {
-      delete cart[id];
-      notices.push({ key: 'cart.notice_sold_out', product: p });
-      continue;
-    }
-    let n = qty;
-    if (n > p.stock) {
-      n = p.stock;
-      cart[id] = n;
-      notices.push({ key: 'cart.notice_reduced', product: p, qty: n });
-    }
+  for (const [id, wanted] of Object.entries(cart)) {
+    const product = byId.get(id);
+    const { qty, notice } = checkLine(cart, id, wanted, product);
+    if (notice) notices.push(notice);
+    if (qty === undefined) continue;
     lines.push({
-      product: p,
-      qty: n,
-      price: p.price,
-      discount_percent: p.discount_percent,
-      unit_final: p.final_price,
-      line_total: p.final_price * n,
+      product,
+      qty,
+      price: product.price,
+      discount_percent: product.discount_percent,
+      unit_final: product.final_price,
+      line_total: product.final_price * qty,
     });
   }
 
-  // Checkout can price another neighborhood while the customer is choosing it (before it is saved).
-  const zone = zoneId !== undefined ? await deliverableZone(zoneId) : await cartZone(req);
+  const zone = await deliverableZone(zoneId !== undefined ? zoneId : userZoneId);
   const totals = computeTotals(lines, zone ? zone.fee : null, await activeOffers());
   return { lines, totals, notices, zone };
-}
-
-/**
- * The neighborhood delivery is priced for: the one saved on the signed-in customer's profile.
- * Null for guests and for customers who haven't saved one, so the cart shows "set by neighborhood".
- */
-export async function cartZone(req) {
-  return deliverableZone(req.user?.zone_id);
 }

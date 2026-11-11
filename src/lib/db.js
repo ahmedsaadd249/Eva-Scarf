@@ -8,6 +8,7 @@ import path from 'node:path';
 import pg from 'pg';
 import { config, ROOT } from '../config/index.js';
 import { requestScope } from './platform.js';
+import { SETTING_DEFAULTS } from '../config/constants.js';
 
 // Return counts/sums as numbers (not strings) and money-safe numerics as numbers.
 pg.types.setTypeParser(20, Number);
@@ -152,6 +153,8 @@ function api(run) {
 
 const base = api(async (sql, params) => (await getDriver()).query(sql, params));
 export const { all, get, run } = base;
+/** The same three functions as one object: what repositories use when they're not inside a transaction. */
+export const db = base;
 
 /** Run fn(t) in a transaction; t has all/get/run. Inside it, use only t (not the global functions). */
 export async function tx(fn) {
@@ -164,26 +167,6 @@ export async function closeDb() {
   const driver = await driverPromise;
   driverPromise = null;
   await driver.close();
-}
-
-// ---------- Settings (cached briefly; they change rarely) ----------
-// On Cloudflare several copies of the site run at once and only the one that saved a change clears its
-// cache, so keep this short: an owner's edit shows up everywhere within a few seconds.
-export const CACHE_TTL_MS = 5_000;
-const SETTING_DEFAULTS = { store_email: '' };
-let settingsCache = { at: 0, values: null };
-
-export async function getSetting(key) {
-  if (!settingsCache.values || Date.now() - settingsCache.at > CACHE_TTL_MS) {
-    const rows = await all('SELECT key, value FROM settings');
-    settingsCache = { at: Date.now(), values: Object.fromEntries(rows.map((r) => [r.key, r.value])) };
-  }
-  return settingsCache.values[key] ?? SETTING_DEFAULTS[key];
-}
-
-export async function setSetting(key, value) {
-  await run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value', [key, String(value)]);
-  settingsCache.values = null;
 }
 
 // ---------- Schema + starting data ----------

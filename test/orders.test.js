@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 process.env.DATABASE_URL = '';
 process.env.PGLITE_DIR = 'memory://orders-test';
 const { closeDb, get, run } = await import('../src/lib/db.js');
-const { placeOrder, setOrderStatus, getOrder, OrderError } = await import('../src/services/orders.js');
+const { placeOrder: placeOrderFor, setOrderStatus, getOrder, OrderError } = await import('../src/services/orders.js');
 const { invalidateOffers } = await import('../src/services/offers.js');
 
 let user;
@@ -25,6 +25,8 @@ before(async () => {
 after(() => closeDb());
 
 const req = (cart) => ({ session: { cart }, user, lang: 'en' });
+// What checkout passes: the signed-in customer, their session's cart, the page language and the total they saw.
+const placeOrder = (r, expectedTotal) => placeOrderFor({ user: r.user, cart: r.session.cart, lang: r.lang, expectedTotal });
 const stock = async () => (await get('SELECT stock FROM products WHERE id = ?', [productId])).stock;
 const rejectsWith = (promise, key) => assert.rejects(promise, (e) => e instanceof OrderError && e.key === key);
 

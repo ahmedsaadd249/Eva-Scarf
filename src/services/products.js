@@ -1,29 +1,13 @@
-import { all, get } from '../lib/db.js';
-import { localized, translate } from '../lib/i18n.js';
+// The tarhas as the store shows them: listing, finding, names and URL slugs.
+import { STORE_PRODUCT_LIMIT } from '../config/constants.js';
+import { translate, localized } from '../lib/i18n.js';
+import * as imageRepo from '../repositories/product-images.js';
+import * as productRepo from '../repositories/products.js';
 import { finalUnitPrice } from './pricing.js';
 
-const SELECT_PRODUCT = `
-  SELECT p.*,
-         (SELECT path FROM product_images i WHERE i.product_id = p.id ORDER BY sort_order, id LIMIT 1) AS image,
-         (SELECT path FROM product_images i WHERE i.product_id = p.id ORDER BY sort_order, id LIMIT 1 OFFSET 1) AS image2,
-         r.avg_stars, COALESCE(r.rating_count, 0)::int AS rating_count
-  FROM products p
-  LEFT JOIN (
-    SELECT oi.product_id, AVG(ra.stars)::float AS avg_stars, COUNT(DISTINCT ra.id)::int AS rating_count
-    FROM ratings ra JOIN order_items oi ON oi.order_id = ra.order_id
-    GROUP BY oi.product_id
-  ) r ON r.product_id = p.id`;
+export const { SORT_KEYS } = productRepo;
 
-const VISIBLE = 'p.is_active = 1 AND p.is_archived = 0';
-
-const SORTS = {
-  featured: 'p.is_featured DESC, p.created_at DESC, p.id DESC',
-  newest: 'p.created_at DESC, p.id DESC',
-  price_asc: 'p.price * (100 - p.discount_percent) ASC, p.id',
-  price_desc: 'p.price * (100 - p.discount_percent) DESC, p.id',
-};
-export const SORT_KEYS = Object.keys(SORTS);
-
+/** Adds the price after the product's own discount and whether any is left. */
 export function decorate(p) {
   if (!p) return p;
   p.final_price = finalUnitPrice(p.price, p.discount_percent);
@@ -31,39 +15,32 @@ export function decorate(p) {
   return p;
 }
 
+const isId = (id) => Number.isSafeInteger(Number(id));
+
 /** Storefront listing: only active, non-archived products. */
-export async function listProducts({ sort = 'featured', search, featuredOnly = false, limit = 200 } = {}) {
-  const where = [VISIBLE];
-  const params = [];
-  if (featuredOnly) where.push('p.is_featured = 1');
-  if (search) {
-    const like = `%${search.replace(/[\\%_]/g, (m) => '\\' + m)}%`;
-    where.push("(p.name_ar LIKE ? ESCAPE '\\' OR p.name_en LIKE ? ESCAPE '\\')");
-    params.push(like, like);
-  }
-  const order = SORTS[sort] ?? SORTS.featured;
-  const rows = await all(`${SELECT_PRODUCT} WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ?`, [...params, limit]);
-  return rows.map(decorate);
+export async function listProducts({ sort = 'featured', search, featuredOnly = false, limit = STORE_PRODUCT_LIMIT } = {}) {
+  return (await productRepo.listVisible({ sort, search, featuredOnly, limit })).map(decorate);
 }
 
 export async function getVisibleProductBySlug(slug) {
-  return decorate(await get(`${SELECT_PRODUCT} WHERE p.slug = ? AND ${VISIBLE}`, [slug]));
+  return decorate(await productRepo.findVisibleBySlug(slug));
 }
 
+/** Any product (also hidden or archived), or null. */
 export async function getProductById(id) {
-  if (!Number.isSafeInteger(Number(id))) return null;
-  return decorate(await get(`${SELECT_PRODUCT} WHERE p.id = ?`, [Number(id)]));
+  if (!isId(id)) return null;
+  return decorate(await productRepo.findById(Number(id)));
 }
 
 /** Products by id (any state), used by the cart. */
 export async function getProductsByIds(ids) {
   const nums = ids.map(Number).filter(Number.isSafeInteger);
   if (!nums.length) return [];
-  return (await all(`${SELECT_PRODUCT} WHERE p.id = ANY(?::int[])`, [nums])).map(decorate);
+  return (await productRepo.findByIds(nums)).map(decorate);
 }
 
-export async function getProductImages(productId) {
-  return all('SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order, id', [productId]);
+export function getProductImages(productId) {
+  return imageRepo.listForProduct(productId);
 }
 
 /** The tarha's name in the reader's language, or '' when it has none (names are optional). */
@@ -81,7 +58,7 @@ export function adminProductLabel(p, lang) {
   return productName(p, lang) || translate(lang, 'admin.unnamed', { n: p.id });
 }
 
-/** URL-safe slug; Arabic-only names fall back to a random suffix. */
+/** URL-safe slug; Arabic-only names fall back to "tarha". */
 export function slugify(text) {
   const base = String(text || '')
     .toLowerCase()
@@ -93,9 +70,10 @@ export function slugify(text) {
   return base || 'tarha';
 }
 
-export async function uniqueSlug(text, exceptId = 0, db = { get }) {
+/** A slug no other product uses: "blue-nile", then "blue-nile-2", "blue-nile-3"… */
+export async function uniqueSlug(text, exceptId = 0, conn = undefined) {
   const base = slugify(text);
   let slug = base;
-  for (let n = 2; await db.get('SELECT 1 FROM products WHERE slug = ? AND id != ?', [slug, exceptId]); n++) slug = `${base}-${n}`;
+  for (let n = 2; await productRepo.slugTaken(slug, exceptId, conn); n++) slug = `${base}-${n}`;
   return slug;
 }

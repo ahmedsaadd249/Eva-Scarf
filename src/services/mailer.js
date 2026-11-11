@@ -3,9 +3,10 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import nodemailer from 'nodemailer';
 import { config, ROOT } from '../config/index.js';
-import { run } from '../lib/db.js';
+import * as emailLogRepo from '../repositories/email-log.js';
 import { keepAlive, readBinary } from '../lib/platform.js';
 
+const ERROR_TEXT_MAX = 500; // characters of a failure kept in the email log
 const smtpReady = Boolean(config.smtp.host && config.smtp.user && config.smtp.pass);
 
 const transport = smtpReady
@@ -27,6 +28,9 @@ const logoBytes = () => (logo ??= readBinary('public/brand/email-monogram.png'))
 export function isSmtpConfigured() {
   return smtpReady;
 }
+
+/** The latest emails sent or failed, newest first (Dashboard → Settings). */
+export const recentEmails = (limit) => emailLogRepo.listLatest(limit);
 
 /** Map a stored image path (/uploads/x.jpg, /samples/x.jpg, https://…) to something Nodemailer can attach. */
 export function imageSource(webPath) {
@@ -97,11 +101,11 @@ export async function sendMail({ to, subject, html, attachments = [], type = 'ge
       const file = await writeToOutbox(message, type);
       console.log(`[mail] SMTP not configured, saved ${type} email to ${path.relative(ROOT, file)}`);
     }
-    await run("INSERT INTO email_log (to_addr, type, status) VALUES (?, ?, 'sent')", [to, type]);
+    await emailLogRepo.logSent(to, type);
     return true;
   } catch (err) {
     console.error(`[mail] ${type} to ${to} failed:`, err.message);
-    await run("INSERT INTO email_log (to_addr, type, status, error) VALUES (?, ?, 'failed', ?)", [to, type, String(err.message).slice(0, 500)])
+    await emailLogRepo.logFailed(to, type, String(err.message).slice(0, ERROR_TEXT_MAX))
       .catch((logErr) => console.error('[mail] could not log failure:', logErr.message));
     return false;
   }

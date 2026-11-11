@@ -8,7 +8,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT } from '../src/config/index.js';
-import { closeDb, getSetting, setSetting, tx } from '../src/lib/db.js';
+import { closeDb, tx } from '../src/lib/db.js';
+import { getSetting, setSetting } from '../src/services/settings.js';
 import { uniqueSlug } from '../src/services/products.js';
 import { newImageName, saveImage } from '../src/lib/storage.js';
 

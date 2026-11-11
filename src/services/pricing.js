@@ -1,9 +1,10 @@
 // All money is integer piasters (1 EGP = 100 piasters). This module is the only
 // place prices and totals are calculated.
+import { MAX_DISCOUNT_PERCENT } from '../config/constants.js';
 
 export function clampDiscount(percent) {
   const d = Math.trunc(Number(percent) || 0);
-  return Math.min(90, Math.max(0, d));
+  return Math.min(MAX_DISCOUNT_PERCENT, Math.max(0, d));
 }
 
 export function finalUnitPrice(price, discountPercent = 0) {
@@ -40,7 +41,7 @@ export function applyOffers(lines, offers = []) {
   let items = net - (buyGet?.amount ?? 0);
 
   const percentOff = best(active.filter((o) => o.type === 'order_percent' && o.percent > 0 && items >= (o.min_subtotal || 0))
-    .map((o) => ({ offer: o, amount: Math.round((items * Math.min(o.percent, 90)) / 100) })));
+    .map((o) => ({ offer: o, amount: Math.round((items * Math.min(o.percent, MAX_DISCOUNT_PERCENT)) / 100) })));
   if (percentOff) applied.push(percentOff);
   items -= percentOff?.amount ?? 0;
 

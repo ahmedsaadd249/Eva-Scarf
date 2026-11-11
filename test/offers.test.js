@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 process.env.DATABASE_URL = '';
 process.env.PGLITE_DIR = 'memory://offers-test';
-const { validateOffer } = await import('../src/services/offers.js');
+const { validateOffer } = await import('../src/validators/offer.js');
 const { offerLabel } = await import('../src/lib/i18n.js');
 
 test('free delivery needs a minimum in pounds', () => {

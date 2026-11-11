@@ -1,11 +1,11 @@
 import path from 'node:path';
 import { config } from '../config/index.js';
-import { get } from '../lib/db.js';
 import { helpersFor, LANGS } from '../lib/i18n.js';
 import { imageSource, LOGO_CID, queueMail, sendMail } from './mailer.js';
 import { getOrder } from './orders.js';
 import { renderTemplate } from '../lib/templates.js';
 import { allZones, formatAddress } from './zones.js';
+import * as userRepo from '../repositories/users.js';
 
 const FONTS = {
   ar: { body: "Tahoma,'Segoe UI',Arial,sans-serif", display: "'Traditional Arabic','Times New Roman',serif", displayStyle: '' },
@@ -48,7 +48,7 @@ function itemAttachments(order) {
 
 /** Emails go out in the customer's current language, falling back to the language they ordered in. */
 async function orderLang(order) {
-  const user = order.user_id ? await get('SELECT lang FROM users WHERE id = ?', [order.user_id]) : null;
+  const user = order.user_id ? await userRepo.findById(order.user_id) : null;
   return user?.lang || order.lang;
 }
 

@@ -1,8 +1,9 @@
+import { config } from '../config/index.js';
 import { formatMoney } from '../services/pricing.js';
 import { readText } from './platform.js';
 
 export const LANGS = ['ar', 'en'];
-const STORE_TZ = process.env.STORE_TIMEZONE || 'Africa/Cairo';
+const STORE_TZ = config.storeTimezone;
 
 const dicts = Object.fromEntries(
   LANGS.map((lang) => [lang, JSON.parse(readText(`src/locales/${lang}.json`))]),
@@ -71,11 +72,4 @@ export function helpersFor(lang) {
     formatDate: (value, withTime) => formatDate(value, lang, withTime),
     offerLabel: (offer) => offerLabel(offer, lang),
   };
-}
-
-export function i18n(req, res, next) {
-  const lang = LANGS.includes(req.session.lang) ? req.session.lang : (req.user?.lang ?? 'ar');
-  req.lang = lang;
-  Object.assign(res.locals, helpersFor(lang));
-  next();
 }

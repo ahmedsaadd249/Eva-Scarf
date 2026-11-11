@@ -203,19 +203,29 @@ worker/index.js           Cloudflare entry point (hands every request to the Exp
 worker/register.js        prepares the app for Cloudflare: bundled files, templates, database per request
 wrangler.jsonc            Cloudflare settings: name, placement, Hyperdrive, plain settings
 scripts/build-worker-files.mjs  bundles templates, translations and the email logo for the Worker
-src/platform.js           the few things that differ between Node and Cloudflare
-src/templates.js          the template engine (EJS, compiled once) for pages and emails
-src/app.js                Express setup: security headers, sessions, CSRF, language, routes
-src/routes/               shop, cart, checkout, account, rating, admin
+src/app.js                wiring only: middlewares in order, then routes, then the 404 and error pages
+src/config/               index.js (settings from .env / Cloudflare), constants.js (the store's fixed rules)
+src/routes/               which address goes to which controller (no logic)
+src/controllers/          read the request, call a service, answer with a page, redirect or JSON
+src/services/             the store's rules (cart, orders, pricing, offers, sign-in codes, emails…); no req/res
+src/repositories/         every SQL query, one file per table; nothing else touches the database
+src/validators/           checks for the owner's forms (products, offers, delivery, settings, ratings)
+src/middlewares/          sessions, sign-in guards, CSRF, rate limits, uploads, security headers, errors
+src/lib/                  db.js (Postgres driver), platform.js (Node vs Cloudflare), templates.js, i18n.js, storage.js
+src/utils/                small helpers (form fields, safe redirects, constant-time compare, caches)
 src/views/                EJS pages (layouts/, partials/, shop/, account/, admin/)
 src/emails/               email templates (Arabic + English)
 src/locales/              ar.json, en.json: all text on the site and in emails
-src/db.js, schema.sql     Postgres (Supabase in production, embedded locally)
-src/storage.js            product photos (Supabase Storage in production, uploads/ locally)
-src/pricing.js            the only place prices and totals are calculated
+src/schema.sql            the tables (Supabase in production, embedded Postgres locally)
 public/js/validation.js   validation rules shared by the browser and the server
 scripts/                  db:setup, migration, e2e and security tests, collection import, test email
 ```
+
+A request flows one way: route → controller → service → repository → database. For example, an owner
+saving a product: `routes/admin.js` sends `POST /admin/products/:id` through `uploadImages` and
+`verifyCsrf` to `controllers/admin/products.js#update`, which checks the form with
+`validators/product.js`, then calls `services/product-admin.js#updateProduct`, which stores the photos
+and calls `repositories/products.js` and `repositories/product-images.js` inside one transaction.
 
 Security: customers have no password (one-time email codes, stored hashed); the owner's password is hashed
 with scrypt, with an optional emailed code as a second step; CSRF tokens on every form; rate-limited sign-in

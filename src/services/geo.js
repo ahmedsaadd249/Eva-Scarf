@@ -2,10 +2,12 @@
 // (not the browser) so we can follow Nominatim's usage policy (identify the store, at most one
 // request per second, cache results) and keep the page's Content-Security-Policy tight.
 import { config } from '../config/index.js';
-import { getSetting } from '../lib/db.js';
+import { DAY_MS } from '../config/constants.js';
+import { getSetting } from './settings.js';
 
-const CACHE_TTL_MS = 24 * 3600 * 1000;
+const CACHE_TTL_MS = DAY_MS;
 const CACHE_MAX = 2000;
+const REQUEST_TIMEOUT_MS = 8000;
 const cache = new Map();
 let lastStart = 0; // when the latest request to Nominatim actually started
 
@@ -65,7 +67,7 @@ async function nominatim(path, params) {
   try {
     res = await fetch(url, {
       headers: { 'User-Agent': `EvaScarf/1.0 (+${await contact()})`, Accept: 'application/json' },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch {
     throw new GeoError(502, 'geo.error_service');

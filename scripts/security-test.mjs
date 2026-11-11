@@ -161,7 +161,7 @@ async function main() {
   await db.run(`UPDATE users SET zone_id = ?, city = ?, village = ?, street = 'S', building_no = '1', apartment_no = '2',
                 phone_primary = '0912345678', phone_secondary = '01012345678' WHERE id IN (?, ?)`,
   [zone.id, zone.city_ar, zone.name_ar, aliceUser.id, bobUser.id]);
-  const aliceOrder = await placeOrder({ session: { cart: { [product.id]: 1 } }, user: await db.get('SELECT * FROM users WHERE id = ?', [aliceUser.id]), lang: 'ar' }, null);
+  const aliceOrder = await placeOrder({ cart: { [product.id]: 1 }, user: await db.get('SELECT * FROM users WHERE id = ?', [aliceUser.id]), lang: 'ar', expectedTotal: null });
 
   try {
     // ------------------------------------------------------------ headers

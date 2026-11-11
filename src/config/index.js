@@ -70,6 +70,14 @@ export const config = {
   },
   // A bare address ("name@gmail.com") gets the store name added, so emails arrive from "Eva Scarf".
   mailFrom: ((from) => (from.includes('<') ? from : `Eva Scarf <${from}>`))((env.MAIL_FROM || 'no-reply@evascarf.local').trim()),
+  // Rate limits (tests lower or raise them). Counted in the database: see middlewares/rate-limit.js.
+  rateLimits: {
+    auth: Number(env.AUTH_RATE_LIMIT || 20), // sign-in tries per visitor per 15 minutes
+    ownerLogin: Number(env.OWNER_LOGIN_LIMIT || 10), // owner password tries per email per hour
+    geo: Number(env.GEO_RATE_LIMIT || 30), // address lookups per visitor per minute
+  },
+  storeTimezone: env.STORE_TIMEZONE || 'Africa/Cairo',
+
   social: {
     instagram: env.INSTAGRAM_URL || 'https://www.instagram.com/evasc_arf',
     tiktok: env.TIKTOK_URL || 'https://www.tiktok.com/@evascarf2',

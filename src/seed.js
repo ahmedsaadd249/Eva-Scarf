@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config, ROOT } from './config/index.js';
-import { closeDb, get, run, tx } from './lib/db.js';
+import { closeDb, tx } from './lib/db.js';
+import * as userRepo from './repositories/users.js';
 import { hashPassword } from './services/auth.js';
 import { emailError, normalizeEmail, passwordError } from '../public/js/validation.js';
 
@@ -19,14 +20,13 @@ export async function seedAdmin() {
   if (emailError(email)) throw new Error(`ADMIN_EMAIL "${email}" is not a valid email address.`);
   if (passwordError(password)) throw new Error('ADMIN_PASSWORD must be 8+ characters with upper and lower case, a number and a symbol.');
 
-  const existing = await get('SELECT id, role FROM users WHERE email = ?', [email]);
+  const existing = await userRepo.findByEmail(email);
   if (existing) {
-    if (existing.role !== 'admin') await run("UPDATE users SET role = 'admin' WHERE id = ?", [existing.id]);
+    if (existing.role !== 'admin') await userRepo.makeOwner(existing.id);
     console.log(`= Owner account ${email} already exists.`);
     return;
   }
-  await run("INSERT INTO users (email, password_hash, full_name, role, lang) VALUES (?, ?, ?, 'admin', 'ar')",
-    [email, await hashPassword(password), config.admin.name]);
+  await userRepo.createOwner({ email, passwordHash: await hashPassword(password), name: config.admin.name });
   console.log(`+ Owner account created: ${email}`);
 }
 

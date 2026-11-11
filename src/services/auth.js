@@ -1,7 +1,8 @@
+// Passwords (only the store owner has one; customers sign in with emailed codes) and who is signed in.
 import crypto from 'node:crypto';
 import { promisify } from 'node:util';
-import session from 'express-session';
-import { get, run } from '../lib/db.js';
+import * as sessionRepo from '../repositories/sessions.js';
+import * as userRepo from '../repositories/users.js';
 
 const scrypt = promisify(crypto.scrypt);
 // One of OWASP's recommended scrypt settings (N = 2^15, r = 8, p = 3): as strong as N = 2^17 with
@@ -10,9 +11,11 @@ const scrypt = promisify(crypto.scrypt);
 const SCRYPT = { N: 2 ** 15, r: 8, p: 3 };
 const MAXMEM = 64 * 1024 * 1024;
 const KEYLEN = 64;
+const SALT_BYTES = 16;
+const MAX_PARALLELISM = 4;
 
 export async function hashPassword(password) {
-  const salt = crypto.randomBytes(16);
+  const salt = crypto.randomBytes(SALT_BYTES);
   const key = await scrypt(password, salt, KEYLEN, { ...SCRYPT, maxmem: MAXMEM });
   return ['scrypt', SCRYPT.N, SCRYPT.r, SCRYPT.p, salt.toString('base64'), key.toString('base64')].join('$');
 }
@@ -20,11 +23,11 @@ export async function hashPassword(password) {
 // Used when the email is unknown, so a failed login takes the same time either way: today's settings,
 // so checking it costs as much as a real hash, and it matches no password. A constant rather than a
 // real hash made at startup, because Cloudflare doesn't allow random values while the app loads.
-const DUMMY_HASH = ['scrypt', SCRYPT.N, SCRYPT.r, SCRYPT.p, Buffer.alloc(16).toString('base64'), Buffer.alloc(KEYLEN).toString('base64')].join('$');
+const DUMMY_HASH = ['scrypt', SCRYPT.N, SCRYPT.r, SCRYPT.p, Buffer.alloc(SALT_BYTES).toString('base64'), Buffer.alloc(KEYLEN).toString('base64')].join('$');
 
 export async function verifyPassword(password, stored = DUMMY_HASH) {
   const [alg, N, r, p, salt, hash] = String(stored).split('$');
-  if (alg !== 'scrypt' || !(128 * N * r <= MAXMEM && +p >= 1 && +p <= 4)) return false;
+  if (alg !== 'scrypt' || !(128 * N * r <= MAXMEM && +p >= 1 && +p <= MAX_PARALLELISM)) return false;
   const expected = Buffer.from(hash, 'base64');
   if (!expected.length) return false;
   const key = await scrypt(String(password), Buffer.from(salt, 'base64'), expected.length, { N: +N, r: +r, p: +p, maxmem: MAXMEM });
@@ -37,126 +40,10 @@ export function needsRehash(stored) {
   return alg !== 'scrypt' || +N !== SCRYPT.N || +r !== SCRYPT.r || +p !== SCRYPT.p;
 }
 
-export function randomToken(bytes = 32) {
-  return crypto.randomBytes(bytes).toString('base64url');
-}
+/** The signed-in user for a session, or null if the account is gone. */
+export const findSessionUser = (userId) => userRepo.findById(userId);
 
-export function sha256(value) {
-  return crypto.createHash('sha256').update(value).digest('hex');
-}
-
-/** express-session store backed by the `sessions` table (works on serverless: no in-memory state). */
-export class DbSessionStore extends session.Store {
-  static expiry(sess) {
-    return sess?.cookie?.expires ? new Date(sess.cookie.expires).getTime() : Date.now() + 24 * 3600 * 1000;
-  }
-
-  get(sid, cb) {
-    get('SELECT sess, expires FROM sessions WHERE sid = ?', [sid])
-      .then((row) => cb(null, row && Number(row.expires) > Date.now() ? row.sess : null), cb);
-  }
-
-  set(sid, sess, cb) {
-    run(`INSERT INTO sessions (sid, sess, expires) VALUES (?, ?, ?)
-         ON CONFLICT (sid) DO UPDATE SET sess = excluded.sess, expires = excluded.expires`,
-    [sid, JSON.stringify(sess), DbSessionStore.expiry(sess)])
-      .then(async () => {
-        // Clear out expired sessions now and then (there's no long-running timer on serverless).
-        if (Math.random() < 0.02) await run('DELETE FROM sessions WHERE expires < ?', [Date.now()]);
-        cb?.(null);
-      }, (err) => cb?.(err));
-  }
-
-  touch(sid, sess, cb) {
-    run('UPDATE sessions SET expires = ? WHERE sid = ?', [DbSessionStore.expiry(sess), sid]).then(() => cb?.(null), (err) => cb?.(err));
-  }
-
-  destroy(sid, cb) {
-    run('DELETE FROM sessions WHERE sid = ?', [sid]).then(() => cb?.(null), (err) => cb?.(err));
-  }
-}
-
-export async function loadUser(req, res, next) {
-  req.user = null;
-  if (req.session.userId) {
-    req.user = await get('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-    if (!req.user) delete req.session.userId;
-  }
-  res.locals.user = req.user;
-  next();
-}
-
-/** Start a fresh session for the user, keeping the guest's cart and language. */
-export function logIn(req, user) {
-  const { cart, lang } = req.session;
-  return new Promise((resolve, reject) => {
-    req.session.regenerate((err) => {
-      if (err) return reject(err);
-      req.session.userId = user.id;
-      req.session.cart = cart ?? {};
-      req.session.lang = lang ?? user.lang;
-      req.session.save((saveErr) => (saveErr ? reject(saveErr) : resolve()));
-    });
-  });
-}
-
-/** Sign the user out on every other device (after a password change or reset). */
+/** Sign the user out on every other device (after a password change, or switching on sign-in codes). */
 export async function endOtherSessions(userId, keepSid) {
-  await run("DELETE FROM sessions WHERE sess->>'userId' = ? AND sid != ?", [String(userId), keepSid ?? '']);
-}
-
-export function logOut(req) {
-  const { lang } = req.session;
-  return new Promise((resolve, reject) => {
-    req.session.regenerate((err) => {
-      if (err) return reject(err);
-      req.session.lang = lang;
-      resolve();
-    });
-  });
-}
-
-/**
- * Only allow redirects to paths on this site: starts with one "/", and no spaces, control characters
- * or backslashes anywhere (browsers drop tabs and newlines, so "/\t/evil.com" would become "//evil.com").
- */
-export function safeNext(next, fallback = '/') {
-  return typeof next === 'string' && /^\/(?![/\\])[^\x00-\x20\x7f\\]*$/.test(next) ? next : fallback;
-}
-
-export function requireUser(req, res, next) {
-  if (req.user) return next();
-  res.redirect('/account/login?next=' + encodeURIComponent(req.originalUrl));
-}
-
-/** Where "my account" leads: the dashboard for the store owner, the profile for customers. */
-export const accountHome = (user) => (user?.role === 'admin' ? '/admin' : '/account/profile');
-
-/** Customer-only pages (profile, my orders, checkout): the store owner uses the dashboard instead. */
-export function customersOnly(req, res, next) {
-  if (req.user?.role === 'admin') return res.redirect('/admin');
-  next();
-}
-
-export function requireAdmin(req, res, next) {
-  if (req.user?.role === 'admin') return next();
-  if (!req.user) return res.redirect('/admin/login?next=' + encodeURIComponent(req.originalUrl));
-  res.status(403).page('error', { title: res.locals.t('errors.forbidden_title'), message: res.locals.t('errors.forbidden') });
-}
-
-/** Per-session CSRF token. Multipart routes call verifyCsrf themselves after multer has parsed the body. */
-export function csrf(req, res, next) {
-  if (!req.session.csrf) req.session.csrf = randomToken(24);
-  res.locals.csrfToken = req.session.csrf;
-  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || req.is('multipart/form-data')) return next();
-  verifyCsrf(req, res, next);
-}
-
-export function verifyCsrf(req, res, next) {
-  // Compare bytes, not characters: a token with non-Latin letters must fail cleanly, not crash.
-  const sent = Buffer.from(String(req.body?._csrf || req.get('x-csrf-token') || ''));
-  const expected = Buffer.from(String(req.session.csrf || ''));
-  const ok = sent.length === expected.length && expected.length > 0 && crypto.timingSafeEqual(sent, expected);
-  if (ok) return next();
-  res.status(403).page('error', { title: res.locals.t('errors.csrf_title'), message: res.locals.t('errors.csrf') });
+  await sessionRepo.removeOthersOfUser(userId, keepSid);
 }

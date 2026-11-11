@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from '../config/index.js';
+import { IMAGE_EXTENSIONS, MAX_IMAGE_BYTES } from '../config/constants.js';
 
 const { url, serviceKey, bucket } = config.supabase;
 export const usesSupabaseStorage = Boolean(url && serviceKey);
@@ -58,7 +59,7 @@ export async function ensureBucket() {
   const created = await fetch(`${url}/storage/v1/bucket`, {
     method: 'POST',
     headers: { ...authHeaders, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: bucket, name: bucket, public: true, file_size_limit: 5 * 1024 * 1024, allowed_mime_types: ['image/jpeg', 'image/png', 'image/webp'] }),
+    body: JSON.stringify({ id: bucket, name: bucket, public: true, file_size_limit: MAX_IMAGE_BYTES, allowed_mime_types: Object.keys(IMAGE_EXTENSIONS) }),
   });
   if (!created.ok) throw new Error(`Could not create storage bucket "${bucket}": ${await created.text()}`);
   return true;
