@@ -18,7 +18,7 @@ globalThis.fetch = async (url, init) => {
 };
 
 const { closeDb, all } = await import('../src/lib/db.js');
-const { embedsImages, parseAddress, sendMail } = await import('../src/services/mailer.js');
+const { brevoKeyHint, embedsImages, parseAddress, sendMail } = await import('../src/services/mailer.js');
 const { sendLoginCodeEmail } = await import('../src/services/emails.js');
 after(() => closeDb());
 beforeEach(() => {
@@ -31,6 +31,12 @@ test('sender addresses are split into name and email', () => {
   assert.deepEqual(parseAddress('Eva Scarf <shop@example.com>'), { name: 'Eva Scarf', email: 'shop@example.com' });
   assert.deepEqual(parseAddress('"Eva Scarf" <shop@example.com>'), { name: 'Eva Scarf', email: 'shop@example.com' });
   assert.deepEqual(parseAddress('shop@example.com'), { email: 'shop@example.com' });
+});
+
+test('a refused SMTP key (instead of an API key) is named in the error', () => {
+  assert.match(brevoKeyHint(401, 'xsmtpsib-0123'), /holds the SMTP key/);
+  assert.equal(brevoKeyHint(401, 'xkeysib-0123'), '');
+  assert.equal(brevoKeyHint(400, 'xsmtpsib-0123'), '');
 });
 
 test('with a Brevo API key, email goes to the API over HTTPS and is logged as sent', async () => {

@@ -76,7 +76,7 @@ export const config = {
 
   // Email through Brevo: its HTTP API when BREVO_API_KEY is set (what Cloudflare must use: SMTP
   // connections from a Worker get closed), otherwise SMTP, otherwise the local outbox folder.
-  brevoApiKey: env.BREVO_API_KEY || '',
+  brevoApiKey: (env.BREVO_API_KEY || '').trim(), // a pasted key sometimes brings a space along
   smtp: {
     host: env.SMTP_HOST || '',
     port: Number(env.SMTP_PORT || 587),

@@ -116,6 +116,13 @@ export function parseAddress(address) {
   return match[1] ? { name: match[1], email: match[2].trim() } : { email: match[2].trim() };
 }
 
+/** Brevo answers 401 "Key not found" when given its SMTP key (xsmtpsib-…) instead of an API key (xkeysib-…). */
+export function brevoKeyHint(status, key) {
+  return status === 401 && String(key).startsWith('xsmtpsib-')
+    ? ' (BREVO_API_KEY holds the SMTP key: create an API key under Settings → SMTP & API → API Keys; it starts with xkeysib-)'
+    : '';
+}
+
 /** Send through Brevo's transactional email API (plain HTTPS, which works everywhere, Cloudflare included). */
 async function sendWithBrevoApi(message) {
   const res = await fetch(BREVO_API_URL, {
@@ -130,7 +137,9 @@ async function sendWithBrevoApi(message) {
     }),
     signal: AbortSignal.timeout(BREVO_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`Brevo API ${res.status}: ${(await res.text()).slice(0, ERROR_TEXT_MAX)}`);
+  if (!res.ok) {
+    throw new Error(`Brevo API ${res.status}: ${(await res.text()).slice(0, ERROR_TEXT_MAX)}${brevoKeyHint(res.status, config.brevoApiKey)}`);
+  }
 }
 
 /** The whole reason a send failed: Nodemailer's code and step, and what the mail server answered. */
