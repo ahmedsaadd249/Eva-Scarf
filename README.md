@@ -5,13 +5,14 @@ delivery address, add tarhas to their cart and order with cash on delivery. The 
 orders, products, prices, discounts, stock and delivery fees from a dashboard. Emails go out at
 every step.
 
-**Live setup:** the app runs on **Vercel**, the data lives in **Supabase** (a Postgres database you
-can browse in its Table Editor, plus Storage for product photos), and emails are sent through
-**Brevo**. The code is kept on **GitHub**; every push deploys automatically.
+**Live setup:** the app runs on **Cloudflare Workers** at <https://shop.evascarf.workers.dev>, the data
+lives in **Supabase** (a Postgres database you can browse in its Table Editor, plus Storage for product
+photos), and emails are sent through **Brevo**. The code is kept on **GitHub**; a deploy is one command
+from this computer (`npm run deploy`).
 
 ---
 
-## Deploying (GitHub → Supabase → Brevo → Vercel)
+## Deploying (GitHub → Supabase → Brevo → Cloudflare)
 
 You need four free accounts. Do them in this order; each step lists exactly what to copy.
 
@@ -30,8 +31,9 @@ You need four free accounts. Do them in this order; each step lists exactly what
    - Name: `eva-scarf` · Region: **Europe** if you can (closest to Egypt; the default is Americas) · a **database password**
      of letters and numbers only (symbols like `#` break the address) · untick **Automatically expose new tables**,
      tick **Enable automatic RLS**.
-   - This store's project is in US West (Oregon), so `vercel.json` runs the site in Portland (`pdx1`), next to the
-     database. If you ever move the database to Europe, change `regions` there to `["fra1"]`.
+   - This store's project is in US West (Oregon), so `wrangler.jsonc` runs the site next to it
+     (`"placement": { "region": "aws:us-west-2" }`, which Cloudflare serves from Seattle). If you ever move the
+     database to Europe, change that region to match (for Frankfurt: `aws:eu-central-1`).
 2. When the project is ready, collect three values:
    - **DATABASE_URL**: click **Connect** (top bar) → **Transaction pooler** → copy the URI
      (it looks like `postgresql://postgres.xxxx:[YOUR-PASSWORD]@aws-1-us-west-2.pooler.supabase.com:6543/postgres`)
@@ -68,35 +70,53 @@ public API (row level security), so only the store's server can read or change t
 For the best inbox placement, later add your own domain in Brevo (it walks you through the DNS
 records) and send from an address on that domain rather than a Gmail address.
 
-### 4. Vercel: hosting the site
-1. Sign up at <https://vercel.com> **with your GitHub account**.
-2. **Add New → Project**, pick the `eva-scarf` repository, leave the build settings as they are.
-   (`vercel.json` sets the framework to none on purpose: if Vercel treats the project as "Express", it builds a
-   second copy of the app for the home page that crashes. Every request must go through `api/index.js`.)
-3. Before clicking Deploy, open **Environment Variables** and add:
+### 4. Cloudflare: hosting the site
+The store runs as a Cloudflare **Worker** named `shop` (settings in `wrangler.jsonc`). Cloudflare runs its own
+runtime rather than Node, so `worker/` adapts the same Express app: templates are bundled and compiled when the
+Worker starts, and each request gets its own database connection through **Hyperdrive**.
 
-   | Name | Value |
+1. Sign up at <https://dash.cloudflare.com>. In **Workers & Pages**, the account's `workers.dev` subdomain is
+   `evascarf`, so the Worker `shop` is at `https://shop.evascarf.workers.dev`.
+2. Log in from this folder (opens the browser; click **Allow** within 2 minutes): `npx wrangler login`
+3. The database connection (done once; it holds the Supabase password, so the Worker never sees `DATABASE_URL`).
+   Use Supabase's **Direct connection** (Connect → Direct: host `db.<project>.supabase.co`, port 5432, user
+   `postgres`), and keep caching **off** so sessions, stock and rate limits are always fresh:
+   ```bash
+   npx wrangler hyperdrive create evascarf-db --caching-disabled --sslmode=require \
+     --origin-host=db.<project>.supabase.co --origin-port=5432 --database=postgres \
+     --origin-user=postgres --origin-password=<database password>
+   ```
+   Put the id it prints in `wrangler.jsonc` under `"hyperdrive"`.
+4. Secrets (stored encrypted at Cloudflare, never in the code):
+
+   | Secret | Value |
    |---|---|
-   | `DATABASE_URL` | from Supabase (step 2) |
-   | `SUPABASE_URL` | from Supabase |
-   | `SUPABASE_SERVICE_ROLE_KEY` | from Supabase |
-   | `SESSION_SECRET` | a long random string (e.g. from <https://1password.com/password-generator>, 40+ characters) |
-   | `SMTP_HOST` | `smtp-relay.brevo.com` |
-   | `SMTP_PORT` | `587` |
+   | `SESSION_SECRET` | a long random string (40+ characters) |
+   | `SUPABASE_SERVICE_ROLE_KEY` | from Supabase (step 2) |
    | `SMTP_USER` | Brevo SMTP login |
    | `SMTP_PASS` | Brevo SMTP key |
-   | `MAIL_FROM` | `Eva Scarf <your-verified-sender@example.com>` |
-   | `BASE_URL` | your site address, e.g. `https://eva-scarf.vercel.app` (or your own domain later) |
+   | `MAIL_FROM` | your verified Brevo sender |
 
-4. Click **Deploy**. When it's done, open the site and sign in at `/admin/login` with the owner account.
-5. Later changes: push to GitHub and Vercel redeploys automatically.
+   Add or change one with `npx wrangler secret put NAME` (it asks for the value). Plain settings (`BASE_URL`,
+   `SUPABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `STORE_TIMEZONE`) are under `"vars"` in `wrangler.jsonc`.
+   `SMTP_PORT` must stay `587`: Cloudflare can't open Brevo's port 465.
+5. Deploy: `npm run deploy` (builds the styles and the template bundle, then uploads). Watch live requests and
+   errors with `npx wrangler tail shop`.
+6. Later changes: run the tests, `npm run deploy`, and push to GitHub to keep the code there too.
 
-**Plan note:** Vercel's free Hobby plan is for non-commercial use. A store that sells products should be
-on **Vercel Pro** under their terms. Supabase and Brevo free plans are enough to start; Supabase pauses
-free projects only after a week with no activity at all.
+**Plan note:** the Workers **Free** plan allows commercial use but only 10 ms of processing per request; this
+store measured 6–65 ms per page (the owner's password check takes the most). If pages fail with Cloudflare
+**error 1102**, move to **Workers Paid** ($5/month) in the dashboard; no code change is needed. Supabase and
+Brevo free plans are enough to start; Supabase pauses free projects only after a week with no activity at all.
 
-**Own domain:** Vercel → Project → Settings → Domains → add `evascarf.com` (or similar) and follow the DNS
-instructions; then update `BASE_URL`.
+**Own domain (later):** add the domain to Cloudflare (or buy it there), then **Workers & Pages → shop → Settings →
+Domains & Routes → Add → Custom domain**; Cloudflare issues the certificate itself. Then set `BASE_URL` in
+`wrangler.jsonc` and deploy.
+
+**Running the Worker locally** (Cloudflare's runtime on this computer; uses the live database):
+create `.dev.vars` with `SESSION_SECRET=…`, `SUPABASE_SERVICE_ROLE_KEY=…` and `BASE_URL=http://localhost:8787`,
+set `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` to your `DATABASE_URL` with `?sslmode=require`
+added, then `npm run cf:dev`. Everyday development doesn't need this: `npm start` runs the same app on Node.
 
 ---
 
@@ -114,7 +134,7 @@ npm start                 # builds the styles, then http://localhost:3000
 
 The owner signs in at `/admin/login` and lands on the dashboard at `/admin`.
 The page styles are built from the templates by Tailwind (`npm run build:css` → `public/css/tailwind.css`).
-`npm start` and `npm run e2e` build them first, and Vercel builds them on every deploy; run it yourself
+`npm start` and `npm run e2e` build them first, and `npm run deploy` builds them every time; run it yourself
 after changing classes in a template if the server is already running.
 Scripts (`seed`, `import-collection`, `migrate:sqlite`) use the same database as the server; for the
 local database, stop the server first (it can only be open in one program at a time).
@@ -150,7 +170,7 @@ live `DATABASE_URL` in `.env`, run `npm run owner:2fa-off`, sign in with the pas
 
 Until SMTP is configured, every email is **saved to `./outbox`** instead of being sent: a `.html` file
 to open in a browser and a `.eml` file (the real message, with images embedded) for Outlook or
-Windows Mail. On Vercel, configure Brevo (step 3 above), since there is no outbox folder to look in.
+Windows Mail. On Cloudflare, configure Brevo (step 3 above), since there is no outbox folder to look in.
 
 ## Adding photos in bulk
 
@@ -162,7 +182,7 @@ configured. Then open **Products → Hidden** to price and publish them. Already
 
 ```bash
 npm test         # unit tests: validation rules, pricing, orders (incl. two customers racing for the last piece),
-                 # address lookup, sign-in codes
+                 # address lookup, sign-in codes, templates as the Cloudflare Worker bundles them
 npm run e2e      # full browser run of every workflow (uses its own test owner account)
 npm run test:security  # attack checks: CSRF, other people's orders, XSS, SQL injection, open redirects, guessing
                        # codes and the owner password, price tampering, file access, production cookies/HTTPS headers
@@ -178,9 +198,13 @@ each step are saved in `temporary screenshots/`.
 ## Project layout
 
 ```
-api/index.js              Vercel entry point (hands every request to the Express app)
 serve.mjs                 local entry point (port 3000)
-vercel.json               Vercel routing and the files bundled with the app
+worker/index.js           Cloudflare entry point (hands every request to the Express app)
+worker/register.js        prepares the app for Cloudflare: bundled files, templates, database per request
+wrangler.jsonc            Cloudflare settings: name, placement, Hyperdrive, plain settings
+scripts/build-worker-files.mjs  bundles templates, translations and the email logo for the Worker
+src/platform.js           the few things that differ between Node and Cloudflare
+src/templates.js          the template engine (EJS, compiled once) for pages and emails
 src/app.js                Express setup: security headers, sessions, CSRF, language, routes
 src/routes/               shop, cart, checkout, account, rating, admin
 src/views/                EJS pages (layouts/, partials/, shop/, account/, admin/)

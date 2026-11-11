@@ -1,0 +1,47 @@
+// Cloudflare Workers settings for the store. Deploy with `npm run deploy` (= npx wrangler deploy).
+// Secrets (SESSION_SECRET, SUPABASE_SERVICE_ROLE_KEY, SMTP_USER, SMTP_PASS, MAIL_FROM) are NOT here:
+// they're stored at Cloudflare with `npx wrangler secret put NAME`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "shop", // → https://shop.evascarf.workers.dev (account subdomain "evascarf")
+  "main": "worker/index.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Tailwind CSS and the bundled templates/translations are built before every deploy and `wrangler dev`.
+  "build": { "command": "npm run build && npm run build:worker" },
+
+  // Files in public/ (CSS, scripts, brand images, samples) are served directly, before the app runs.
+  "assets": { "directory": "./public" },
+
+  // Run next to the Supabase database (AWS us-west-2), not next to the visitor: a page makes several
+  // queries one after another, and each would otherwise cross the world.
+  "placement": { "mode": "targeted", "region": "aws:us-west-2" },
+
+  // The connection to Supabase (its password lives in the Hyperdrive settings at Cloudflare).
+  // Hyperdrive "evascarf-db" → Supabase's direct connection (db.<project>.supabase.co:5432, user postgres),
+  // created with `npx wrangler hyperdrive create evascarf-db --caching-disabled --sslmode=require …`.
+  // Caching must stay off: sessions, stock and rate limits must always read fresh rows.
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "457845259fe64022ac2db37a1136b9d2" }],
+
+  "alias": {
+    // The local database (PGlite) is never used on Cloudflare; keep its large WebAssembly file out.
+    "@electric-sql/pglite": "./worker/stubs/pglite.js",
+    // The same EJS build Node and the tests use (wrangler would otherwise pick EJS's browser build).
+    "ejs": "./node_modules/ejs/lib/esm/ejs.js"
+  },
+
+  "vars": {
+    "NODE_ENV": "production",
+    // The store's public address, used for links in emails. Change it when a custom domain is added.
+    "BASE_URL": "https://shop.evascarf.workers.dev",
+    "STORE_TIMEZONE": "Africa/Cairo",
+    "SUPABASE_URL": "https://glifpnavvppkkbxfptwk.supabase.co",
+    "SMTP_HOST": "smtp-relay.brevo.com",
+    // 587 with STARTTLS. Tested on Cloudflare's runtime: 587 logs in to Brevo, 465 can't connect there.
+    "SMTP_PORT": "587"
+  },
+
+  "observability": { "enabled": true },
+  "upload_source_maps": true
+}

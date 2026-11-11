@@ -1,10 +1,17 @@
 // Database access (PostgreSQL).
-// - Production: Supabase, via DATABASE_URL.
+// - Production (Cloudflare Workers): Supabase through Cloudflare Hyperdrive, one connection per request.
+// - Local scripts with DATABASE_URL set (db:setup, owner:set…): Supabase through a connection pool.
 // - Local development and tests: PGlite, an embedded Postgres (no install needed), stored in data/pglite.
 // Queries use `?` placeholders; they're converted to Postgres's $1, $2… here.
 import fs from 'node:fs';
 import path from 'node:path';
+import pg from 'pg';
 import { config, ROOT } from './config.js';
+import { requestScope } from './platform.js';
+
+// Return counts/sums as numbers (not strings) and money-safe numerics as numbers.
+pg.types.setTypeParser(20, Number);
+pg.types.setTypeParser(1700, Number);
 
 const toPg = (sql) => {
   let i = 0;
@@ -13,18 +20,83 @@ const toPg = (sql) => {
 const clean = (params) => params.map((v) => (v === undefined ? null : v));
 
 let driverPromise = null;
+let perRequestConnection = null;
 
-/** A small uniform interface over node-postgres (pool) and PGlite. */
+/**
+ * Cloudflare Workers: a database connection can't be shared between requests there, so each request
+ * opens its own (cheap through Hyperdrive, which keeps the real connections to Supabase open).
+ * `getSettings` returns node-postgres connection settings ({ host, port, user, password, database }).
+ */
+export function usePerRequestConnections(getSettings) {
+  perRequestConnection = getSettings;
+}
+
+/** A small uniform interface over node-postgres (pool or one client per request) and PGlite. */
 function getDriver() {
+  if (perRequestConnection) return requestDriver;
   driverPromise ??= config.databaseUrl ? openPool() : openPglite();
   return driverPromise;
 }
 
+const wrapClient = (c) => ({ query: (sql, params) => c.query(sql, params) });
+
+async function runTransaction(client, fn) {
+  await client.query('BEGIN');
+  try {
+    const result = await fn(wrapClient(client));
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  }
+}
+
+// ---------- Cloudflare: one connection per request ----------
+async function connectClient() {
+  // Hyperdrive answers inside Cloudflare and does the TLS to Supabase itself, so no SSL here.
+  const client = new pg.Client({ ...perRequestConnection(), ssl: false });
+  let closing = false;
+  // Once we close it ourselves, the socket reports "This socket has been closed": not worth a log line.
+  client.on('error', (err) => {
+    if (!closing) console.error('Database connection error:', err.message);
+  });
+  client.close = () => {
+    closing = true;
+    return client.end().catch(() => {});
+  };
+  await client.connect();
+  return client;
+}
+
+function requestClient() {
+  const scope = requestScope.getStore();
+  if (!scope) throw new Error('Database used outside a request (Cloudflare needs a connection per request).');
+  if (!scope.db) {
+    scope.db = connectClient();
+    // Close it at the end; if it never opened, the query that asked for it has already reported why.
+    scope.onFinish(() => scope.db.then((client) => client.close(), () => {}));
+  }
+  return scope.db;
+}
+
+const requestDriver = {
+  query: async (sql, params) => (await requestClient()).query(sql, params),
+  exec: async (sql) => (await requestClient()).query(sql),
+  // A transaction gets a connection of its own, so the request's other queries (a background email
+  // log, say) never land inside it.
+  async transaction(fn) {
+    const client = await connectClient();
+    try {
+      return await runTransaction(client, fn);
+    } finally {
+      await client.close();
+    }
+  },
+  close: async () => {},
+};
+
 async function openPool() {
-  const { default: pg } = await import('pg');
-  // Return counts/sums as numbers (not strings) and money-safe numerics as numbers.
-  pg.types.setTypeParser(20, Number);
-  pg.types.setTypeParser(1700, Number);
   const url = new URL(config.databaseUrl);
   const local = ['localhost', '127.0.0.1'].includes(url.hostname);
   url.searchParams.delete('sslmode'); // SSL is configured below instead
@@ -34,20 +106,13 @@ async function openPool() {
     ssl: local ? false : { rejectUnauthorized: false },
     idleTimeoutMillis: 10_000,
   });
-  const wrap = (c) => ({ query: (sql, params) => c.query(sql, params) });
   return {
     query: (sql, params) => pool.query(sql, params),
     exec: (sql) => pool.query(sql),
     async transaction(fn) {
       const client = await pool.connect();
       try {
-        await client.query('BEGIN');
-        const result = await fn(wrap(client));
-        await client.query('COMMIT');
-        return result;
-      } catch (err) {
-        await client.query('ROLLBACK').catch(() => {});
-        throw err;
+        return await runTransaction(client, fn);
       } finally {
         client.release();
       }
@@ -102,7 +167,7 @@ export async function closeDb() {
 }
 
 // ---------- Settings (cached briefly; they change rarely) ----------
-// On Vercel several copies of the site run at once and only the one that saved a change clears its
+// On Cloudflare several copies of the site run at once and only the one that saved a change clears its
 // cache, so keep this short: an owner's edit shows up everywhere within a few seconds.
 export const CACHE_TTL_MS = 5_000;
 const SETTING_DEFAULTS = { store_email: '' };

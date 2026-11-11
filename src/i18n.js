@@ -1,13 +1,11 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { ROOT } from './config.js';
 import { formatMoney } from './pricing.js';
+import { readText } from './platform.js';
 
 export const LANGS = ['ar', 'en'];
 const STORE_TZ = process.env.STORE_TIMEZONE || 'Africa/Cairo';
 
 const dicts = Object.fromEntries(
-  LANGS.map((lang) => [lang, JSON.parse(fs.readFileSync(path.join(ROOT, 'src', 'locales', `${lang}.json`), 'utf8'))]),
+  LANGS.map((lang) => [lang, JSON.parse(readText(`src/locales/${lang}.json`))]),
 );
 
 const lookup = (dict, key) => key.split('.').reduce((node, part) => node?.[part], dict);

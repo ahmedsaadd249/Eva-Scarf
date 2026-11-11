@@ -11,6 +11,8 @@ import { adminProductLabel, productLabel, productName } from './products.js';
 import { allZones, formatAddress, placeOf } from './zones.js';
 import { activeOffers } from './offers.js';
 import { storageOrigin } from './storage.js';
+import { trackResponse } from './platform.js';
+import { TemplateView } from './templates.js';
 import shopRoutes from './routes/shop.js';
 import cartRoutes from './routes/cart.js';
 import accountRoutes from './routes/account.js';
@@ -24,8 +26,10 @@ const LEAFLET = 'https://unpkg.com/leaflet@1.9.4/dist/';
 export const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(ROOT, 'src', 'views'));
+app.set('view', TemplateView); // views by name, compiled once (src/templates.js); works on Cloudflare too
 app.disable('x-powered-by');
 if (config.isProd) app.set('trust proxy', 1);
+app.use(trackResponse); // Cloudflare: keep the request's database connection until the response is done
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -59,9 +63,12 @@ app.use(['/admin', '/account', '/cart', '/checkout', '/api'], (req, res, next) =
   next();
 });
 
-const staticOpts = { maxAge: config.isProd ? '7d' : 0 };
-app.use(express.static(path.join(ROOT, 'public'), staticOpts));
-app.use('/uploads', express.static(config.uploadsDir, staticOpts)); // local photos (production uses Supabase Storage)
+// On Cloudflare the files in public/ are served before a request ever reaches the app (wrangler.jsonc "assets").
+if (!config.onCloudflare) {
+  const staticOpts = { maxAge: config.isProd ? '7d' : 0 };
+  app.use(express.static(path.join(ROOT, 'public'), staticOpts));
+  app.use('/uploads', express.static(config.uploadsDir, staticOpts)); // local photos (production uses Supabase Storage)
+}
 
 app.use(express.urlencoded({ extended: true, limit: '200kb' }));
 app.use(express.json({ limit: '50kb' }));
@@ -160,4 +167,3 @@ app.use((err, req, res, next) => {
   else res.send('Server error');
 });
 
-export default app; // Vercel imports the app from api/index.js

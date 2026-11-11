@@ -17,8 +17,10 @@ export async function hashPassword(password) {
   return ['scrypt', SCRYPT.N, SCRYPT.r, SCRYPT.p, salt.toString('base64'), key.toString('base64')].join('$');
 }
 
-// Used when the email is unknown, so a failed login takes the same time either way.
-const DUMMY_HASH = await hashPassword('timing-equaliser');
+// Used when the email is unknown, so a failed login takes the same time either way: today's settings,
+// so checking it costs as much as a real hash, and it matches no password. A constant rather than a
+// real hash made at startup, because Cloudflare doesn't allow random values while the app loads.
+const DUMMY_HASH = ['scrypt', SCRYPT.N, SCRYPT.r, SCRYPT.p, Buffer.alloc(16).toString('base64'), Buffer.alloc(KEYLEN).toString('base64')].join('$');
 
 export async function verifyPassword(password, stored = DUMMY_HASH) {
   const [alg, N, r, p, salt, hash] = String(stored).split('$');

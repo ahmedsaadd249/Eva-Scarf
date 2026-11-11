@@ -21,13 +21,15 @@
     "db:copy-local": "node scripts/copy-local-to-supabase.js",
     "owner:2fa-off": "node scripts/owner-2fa-off.js",
     "owner:set": "node scripts/set-owner.js",
-    "pree2e": "npm run build:css"
+    "pree2e": "npm run build:css",
+    "build:worker": "node scripts/build-worker-files.mjs",
+    "cf:dev": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "engines": {
     "node": "22.x"
   },
   "dependencies": {
-    "@vercel/functions": "^3.10.1",
     "ejs": "^7.0.1",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.1",
@@ -40,7 +42,8 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
     "puppeteer": "^25.14.0",
-    "tailwindcss": "^3.4.19"
+    "tailwindcss": "^3.4.19",
+    "wrangler": "^4.160.0"
   },
   "overrides": {
     "zod": "^4.6.7"

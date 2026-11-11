@@ -1,13 +1,11 @@
 import path from 'node:path';
-import ejs from 'ejs';
-import { config, ROOT } from './config.js';
+import { config } from './config.js';
 import { get } from './db.js';
 import { helpersFor, LANGS } from './i18n.js';
 import { imageSource, LOGO_CID, queueMail, sendMail } from './mailer.js';
 import { getOrder } from './orders.js';
+import { renderTemplate } from './templates.js';
 import { allZones, formatAddress } from './zones.js';
-
-const EMAIL_DIR = path.join(ROOT, 'src', 'emails');
 
 const FONTS = {
   ar: { body: "Tahoma,'Segoe UI',Arial,sans-serif", display: "'Traditional Arabic','Times New Roman',serif", displayStyle: '' },
@@ -31,8 +29,8 @@ async function render(template, data) {
     displayFont: FONTS[lang].display,
     displayStyle: FONTS[lang].displayStyle,
   };
-  const body = await ejs.renderFile(path.join(EMAIL_DIR, `${template}.ejs`), locals);
-  return ejs.renderFile(path.join(EMAIL_DIR, '_layout.ejs'), { ...locals, body });
+  const body = renderTemplate(`emails/${template}`, locals);
+  return renderTemplate('emails/_layout', { ...locals, body });
 }
 
 /** Attach each order item's image inline so it shows in the email even when the site isn't public. */

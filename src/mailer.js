@@ -3,8 +3,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import nodemailer from 'nodemailer';
 import { config, ROOT } from './config.js';
-import { waitUntil } from '@vercel/functions';
 import { run } from './db.js';
+import { keepAlive, readBinary } from './platform.js';
 
 const smtpReady = Boolean(config.smtp.host && config.smtp.user && config.smtp.pass);
 
@@ -21,7 +21,8 @@ const transport = smtpReady
 const previewTransport = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: 'windows' });
 
 export const LOGO_CID = 'logo@evascarf';
-const LOGO_PATH = path.join(ROOT, 'public', 'brand', 'email-monogram.png');
+let logo = null; // the logo's bytes, read once (from disk, or from the Worker's bundle)
+const logoBytes = () => (logo ??= readBinary('public/brand/email-monogram.png'));
 
 export function isSmtpConfigured() {
   return smtpReady;
@@ -62,11 +63,12 @@ async function writeToOutbox(message, type) {
   const { message: eml } = await previewTransport.sendMail(message);
   fs.writeFileSync(`${base}.eml`, eml);
 
-  // Browser preview: point cid: images at the files on disk.
+  // Browser preview: point cid: images at the files on disk (or embed them when they're bytes).
   let preview = message.html;
   for (const a of message.attachments ?? []) {
     if (!a.cid) continue;
-    const src = /^https?:/.test(a.path) ? a.path : pathToFileURL(a.path).href;
+    const src = a.content ? `data:image/png;base64,${Buffer.from(a.content).toString('base64')}`
+      : /^https?:/.test(a.path) ? a.path : pathToFileURL(a.path).href;
     preview = preview.split(`cid:${a.cid}`).join(src);
   }
   // The note goes after the doctype; anything before it would put browsers in quirks mode.
@@ -86,7 +88,7 @@ export async function sendMail({ to, subject, html, attachments = [], type = 'ge
     subject,
     html,
     text: htmlToText(html),
-    attachments: [{ filename: 'eva-scarf.png', path: LOGO_PATH, cid: LOGO_CID }, ...attachments],
+    attachments: [{ filename: 'eva-scarf.png', content: logoBytes(), contentType: 'image/png', cid: LOGO_CID }, ...attachments],
   };
   try {
     if (transport) {
@@ -107,13 +109,12 @@ export async function sendMail({ to, subject, html, attachments = [], type = 'ge
 
 /**
  * Send in the background: the page response never waits for the mail server.
- * On Vercel, waitUntil keeps the function alive until the email is sent (otherwise it would be
- * frozen as soon as the response goes out); elsewhere the promise simply runs to completion.
+ * On Cloudflare, keepAlive keeps the function alive until the email is sent (otherwise it
+ * would be stopped as soon as the response goes out); elsewhere the promise simply runs to completion.
  */
 export function queueMail(build) {
   const job = Promise.resolve()
     .then(build)
     .catch((err) => console.error('[mail] could not build email:', err));
-  waitUntil(job);
-  return job;
+  return keepAlive(job);
 }

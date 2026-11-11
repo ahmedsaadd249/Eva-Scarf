@@ -1,4 +1,4 @@
-// Tailwind build settings: `npm run build:css` writes public/css/tailwind.css (Vercel runs it on every
+// Tailwind build settings: `npm run build:css` writes public/css/tailwind.css (Cloudflare's deploy runs it on every
 // deploy). Scans the page templates and the browser scripts for the classes they use. Eva Scarf's
 // design tokens (colours, fonts, shadows, easing) live here.
 /** @type {import('tailwindcss').Config} */

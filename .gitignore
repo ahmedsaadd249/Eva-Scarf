@@ -1,5 +1,5 @@
 node_modules/
-# Every .env file (.env, .env.local from `vercel env pull`, .env.production…), except the example.
+# Every .env file (.env, .env.local, .env.production…), except the example.
 .env*
 !.env.example
 data/
@@ -7,17 +7,18 @@ uploads/*
 !uploads/.gitkeep
 outbox/
 temporary screenshots/
-.vercel/
 Screenshot/
 Collection/
 *.log
 New folder/
 
-# Settings file for uploading to Vercel (has secrets)
-vercel.env
-
-# Built by `npm run build:css` (Vercel builds it on every deploy)
+# Built by `npm run build:css` (the Cloudflare deploy builds it every time)
 public/css/tailwind.css
 
 # Security audit reports (they describe weak spots; keep them off GitHub)
 security-audit-*.md
+
+# Cloudflare: wrangler's local state, local secrets for `wrangler dev`, and the bundle made at build time
+.wrangler/
+.dev.vars*
+worker/files.generated.js

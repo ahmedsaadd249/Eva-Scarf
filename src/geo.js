@@ -7,7 +7,6 @@ import { getSetting } from './db.js';
 const CACHE_TTL_MS = 24 * 3600 * 1000;
 const CACHE_MAX = 2000;
 const cache = new Map();
-let queue = Promise.resolve(); // requests to Nominatim, one after another
 let lastStart = 0; // when the latest request to Nominatim actually started
 
 export class GeoError extends Error {
@@ -40,17 +39,18 @@ async function contact() {
 }
 
 /**
- * Space requests at least geoMinIntervalMs apart across the whole server. Requests queue up and each
- * one waits for the previous one's actual start, so a late timer can't let two go out too close.
+ * Space requests at least geoMinIntervalMs apart across this copy of the server. A waiting request
+ * checks again after its timer, and claims the slot only if the gap is still there, so a late timer
+ * can't let two go out too close. Only timestamps are shared between requests, never a promise:
+ * on Cloudflare a request can't wait on a promise that belongs to another request.
  */
-function waitForSlot() {
-  const turn = queue.then(async () => {
+async function waitForSlot() {
+  for (;;) {
     const wait = lastStart + config.geoMinIntervalMs - Date.now();
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    lastStart = Date.now();
-  });
-  queue = turn.catch(() => {});
-  return turn;
+    if (wait <= 0) break;
+    await new Promise((r) => setTimeout(r, wait));
+  }
+  lastStart = Date.now();
 }
 
 async function nominatim(path, params) {
@@ -121,6 +121,5 @@ export async function searchPlaces(q, lang = 'ar') {
 /** For tests. */
 export function resetGeoCache() {
   cache.clear();
-  queue = Promise.resolve();
   lastStart = 0;
 }

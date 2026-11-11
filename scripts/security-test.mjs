@@ -32,18 +32,10 @@ if (process.argv[2] === '--prod-server') {
   Object.assign(process.env, baseEnv, {
     NODE_ENV: 'production', SESSION_SECRET: 'security-test-only-secret', PGLITE_DIR: 'memory://sec-prod', PORT: process.argv[3],
   });
-  // Serve through the Vercel entry point, with Vercel's own response helpers added the way Vercel
-  // does (its res.redirect answers 307 and doesn't encode the address), so the checks see what
-  // the live site does.
-  const { default: handler } = await import('../api/index.js');
-  const http = await import('node:http');
-  http.createServer((req, res) => {
-    res.redirect = (statusOrUrl, url) => {
-      const [status, location] = url === undefined ? [307, statusOrUrl] : [statusOrUrl, url];
-      res.writeHead(status, { Location: location }).end();
-    };
-    handler(req, res);
-  }).listen(Number(process.argv[3]), () => console.log('ready'));
+  // The same Express app the Cloudflare Worker runs, in production mode. Like worker/index.js, the
+  // requests below say https through X-Forwarded-Proto.
+  const { app } = await import('../src/app.js');
+  app.listen(Number(process.argv[3]), () => console.log('ready'));
 } else {
   await main();
 }
@@ -221,7 +213,7 @@ async function main() {
       assert.match(cookie, /HttpOnly/i);
       assert.match(cookie, /SameSite=Lax/i);
     });
-    await check('production (as on Vercel): Secure cookie, HSTS, upgrade-insecure-requests, safe 302 redirects', async () => {
+    await check('production (as on Cloudflare): Secure cookie, HSTS, upgrade-insecure-requests, safe 302 redirects', async () => {
       const port = PORT + 1;
       const child = spawn(process.execPath, [SELF, '--prod-server', String(port)], { stdio: ['ignore', 'pipe', 'pipe'] });
       try {
@@ -234,7 +226,7 @@ async function main() {
         assert.match(res.headers.get('strict-transport-security') || '', /max-age=\d+/);
         assert.match(res.headers.get('content-security-policy'), /upgrade-insecure-requests/);
         assert.match(res.headers.getSetCookie().find((c) => c.startsWith('eva.sid=')) || '', /;\s*Secure/i);
-        // Through the Vercel entry point: redirects must be 302 (a 307 makes browsers re-send forms)
+        // Redirects must be 302 (a 307 makes browsers re-send forms)
         // and must never carry raw control characters (browsers drop them: "/\t/x" → "//x").
         for (const next of ['/shop', '/\t/evil.example', '/\n/evil.example']) {
           const r = await fetch(`http://localhost:${port}/lang/ar?next=${encodeURIComponent(next)}`, { headers: { 'X-Forwarded-Proto': 'https' }, redirect: 'manual' });

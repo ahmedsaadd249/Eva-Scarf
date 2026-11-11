@@ -1,8 +1,9 @@
 // Rate limits whose counts live in the database (table rate_limits), so every running copy of the
-// site shares them (Vercel runs several) and they survive restarts and deploys. A small store for
+// site shares them (Cloudflare runs several) and they survive restarts and deploys. A small store for
 // express-rate-limit; each limit gets its own key prefix so their counts don't mix.
 import { rateLimit } from 'express-rate-limit';
 import { get, run } from './db.js';
+import { keepAlive } from './platform.js';
 
 class DbStore {
   localKeys = false; // a count made by one copy of the site is seen by all of them
@@ -30,7 +31,7 @@ class DbStore {
         reset_at = CASE WHEN rate_limits.reset_at <= ? THEN excluded.reset_at ELSE rate_limits.reset_at END
       RETURNING hits, reset_at`, [this.prefix + key, now + this.windowMs, now, now]);
     // Clear out finished windows now and then (there's no long-running timer on serverless).
-    if (Math.random() < 0.01) run('DELETE FROM rate_limits WHERE reset_at < ?', [now]).catch(() => {});
+    if (Math.random() < 0.01) keepAlive(run('DELETE FROM rate_limits WHERE reset_at < ?', [now]).catch(() => {}));
     return { totalHits: Number(row.hits), resetTime: new Date(Number(row.reset_at)) };
   }
 
