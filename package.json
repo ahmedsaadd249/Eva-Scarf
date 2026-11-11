@@ -18,6 +18,8 @@
     "import-collection": "node scripts/import-collection.js",
     "test-email": "node scripts/test-email.js",
     "test:security": "node scripts/security-test.mjs",
+    "lint": "eslint .",
+    "format": "prettier --write .",
     "db:copy-local": "node scripts/copy-local-to-supabase.js",
     "owner:2fa-off": "node scripts/owner-2fa-off.js",
     "owner:set": "node scripts/set-owner.js",
@@ -41,6 +43,10 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "prettier": "3.9.10",
     "puppeteer": "^25.14.0",
     "tailwindcss": "^3.4.19",
     "wrangler": "^4.160.0"

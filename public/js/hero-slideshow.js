@@ -4,6 +4,8 @@
 // and the photo flies into its line in the cart. Each card's place comes from its slot class; a turn swaps
 // the classes and animates every card from where it was to where it now is (transform and opacity only).
 // Visitors who turn motion off get no turns and no flying photo (the panel still opens).
+import { csrf } from './lib/dom.js';
+
 const AUTO_MS = 2000;
 const BUILD_MS = 2400; // the build animation in site.css ("hero collage") is over by then
 const MOVE_MS = 600;
@@ -90,7 +92,6 @@ export function initHeroCollage(root) {
 
   // ---------- Tap a photo: into the cart, with the photo growing and flying into the cart panel ----------
   const cartPanel = import('./cart-panel.js'); // ready for the first tap
-  const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
 
   /** A copy of the card's photo, on top of everything, that grows to a big view in the middle of the screen. */
   function liftPhoto(card) {

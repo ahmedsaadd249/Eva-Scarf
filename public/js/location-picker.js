@@ -145,7 +145,6 @@ export function initLocationPicker(root) {
     root.classList.remove('map-moving');
     if (!moving) return;
     moving = false;
-    const point = centre();
     nameEl.textContent = say('detecting');
     addressEl.textContent = '';
     setStatus('info', '');

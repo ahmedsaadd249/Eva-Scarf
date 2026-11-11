@@ -1,0 +1,5 @@
+node_modules
+package-lock.json
+public/css/tailwind.css
+worker/files.generated.js
+temporary screenshots

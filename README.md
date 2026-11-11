@@ -220,6 +220,10 @@ order, rates it, prices a neighborhood, adds/edits/discounts/deletes a product, 
 two-step sign-in and signs in with a code, and lets a returning customer reorder with a fresh code. Screenshots of
 each step are saved in `temporary screenshots/`.
 
+`npm run lint` runs ESLint's recommended checks (`eslint.config.js`): unused variables, undefined names and
+other likely mistakes. The layout rules for Prettier are in `.prettierrc`; `npm run format` rewrites every file
+in that style (the existing code has not been reformatted yet).
+
 ## Project layout
 
 ```
@@ -242,6 +246,10 @@ src/views/                EJS pages (layouts/, partials/, shop/, account/, admin
 src/emails/               email templates (Arabic + English)
 src/locales/              ar.json, en.json: all text on the site and in emails
 src/schema.sql            the tables (Supabase in production, embedded Postgres locally)
+public/js/app.js          browser entry point: starts what every page uses; page-only features load where needed
+public/js/features/       small browser features, one per file (header, toasts, add to cart…); admin/ = dashboard
+public/js/*.js            larger page features: map picker, home slideshow, cart panel, code boxes, characters
+public/js/lib/dom.js      helpers every browser script shares ($, $$, msg, csrf)
 public/js/validation.js   validation rules shared by the browser and the server
 scripts/                  db:setup, migration, e2e and security tests, collection import, test email
 ```

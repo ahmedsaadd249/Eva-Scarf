@@ -33,7 +33,7 @@
 
     <section class="space-y-5 rounded-card bg-white p-5 shadow-soft md:p-6" aria-labelledby="offer-details">
       <h2 id="offer-details" class="text-[16px] font-medium"><%= t('admin.offer_settings') %></h2>
-      <%# Which fields show depends on the kind of offer (public/js/app.js); without JavaScript all show. %>
+      <%# Which fields show depends on the kind of offer (public/js/features/admin/offer-form.js); without JavaScript all show. %>
       <div data-offer-fields="free_delivery order_percent">
         <label for="f-min_subtotal" class="mb-1.5 block text-[14px] font-medium"><%= t('admin.offer_min_subtotal') %></label>
         <input id="f-min_subtotal" name="min_subtotal" value="<%= values.min_subtotal_input %>" inputmode="decimal" dir="ltr" class="num <%= input %> <%= border('min_subtotal') %>" placeholder="1000">

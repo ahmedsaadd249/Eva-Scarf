@@ -145,15 +145,6 @@ async function main() {
     return (typeof sess === 'string' ? JSON.parse(sess) : sess).cart || {};
   };
   const isLoginRedirect = (res) => res.status === 302 && /^\/(account|admin)\/login/.test(res.headers.get('location'));
-  const waitForEmail = async (type, to) => {
-    for (let i = 0; i < 50; i++) {
-      const dir = baseEnv.OUTBOX_DIR;
-      const file = fs.existsSync(dir) && fs.readdirSync(dir).find((f) => f.includes(`-${type}-${to}`) && f.endsWith('.html'));
-      if (file) return fs.readFileSync(path.join(dir, file), 'utf8');
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    throw new Error(`no ${type} email`);
-  };
 
   const zone = await db.get("SELECT * FROM zones WHERE name_en = 'Mohandessin'");
   const product = await db.get("SELECT * FROM products WHERE slug = 'karkadeh'");
@@ -235,6 +226,7 @@ async function main() {
           const r = await fetch(`http://localhost:${port}/lang/ar?next=${encodeURIComponent(next)}`, { headers: { 'X-Forwarded-Proto': 'https' }, redirect: 'manual' });
           const location = r.headers.get('location') || '';
           assert.equal(r.status, 302, `redirect status for next=${JSON.stringify(next)}`);
+          // eslint-disable-next-line no-control-regex -- control characters are exactly what this looks for
           assert.ok(!/[\x00-\x20]/.test(location) && new URL(location, 'https://evascarf.test').origin === 'https://evascarf.test', `unsafe Location ${JSON.stringify(location)}`);
         }
       } finally {

@@ -96,9 +96,9 @@ export function initAuthCharacters(root) {
     hadError = false;
     schedule();
   });
-  // The show/hide button is handled in app.js first; read the new state after it.
+  // The show/hide button is handled in features/password-fields.js; read the new state on the next frame, after it.
   passwordInputs.forEach(({ btn }) => btn.addEventListener('click', () => requestAnimationFrame(schedule)));
-  // Runs only when the form really goes (app.js stops invalid submits before this listener).
+  // Runs only when the form really goes (form checks and data-confirm stop a form before this listener).
   form.addEventListener('submit', (e) => {
     if (e.defaultPrevented) return;
     submitted = true;
