@@ -4,9 +4,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { config, ROOT } from './config.js';
-import { closeDb, get, run, tx } from './db.js';
-import { hashPassword } from './auth.js';
+import { config, ROOT } from './config/index.js';
+import { closeDb, get, run, tx } from './lib/db.js';
+import { hashPassword } from './services/auth.js';
 import { emailError, normalizeEmail, passwordError } from '../public/js/validation.js';
 
 export async function seedAdmin() {

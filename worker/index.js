@@ -4,7 +4,7 @@
 import './register.js'; // must stay first: see the note in register.js
 import { httpServerHandler } from 'cloudflare:node';
 import { app } from '../src/app.js';
-import { RequestScope, requestScope } from '../src/platform.js';
+import { RequestScope, requestScope } from '../src/lib/platform.js';
 
 const PORT = 3000; // only a name for the bridge; nothing listens on a real port
 app.listen(PORT);

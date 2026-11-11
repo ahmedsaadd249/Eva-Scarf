@@ -7,10 +7,10 @@
 // Locally, stop the server first: the built-in local database can only be open in one program at a time.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT } from '../src/config.js';
-import { closeDb, getSetting, setSetting, tx } from '../src/db.js';
-import { uniqueSlug } from '../src/products.js';
-import { newImageName, saveImage } from '../src/storage.js';
+import { ROOT } from '../src/config/index.js';
+import { closeDb, getSetting, setSetting, tx } from '../src/lib/db.js';
+import { uniqueSlug } from '../src/services/products.js';
+import { newImageName, saveImage } from '../src/lib/storage.js';
 
 const SOURCE = path.join(ROOT, 'Collection');
 const IMAGE = /\.(jpe?g|png|webp)$/i;

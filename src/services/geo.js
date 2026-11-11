@@ -1,8 +1,8 @@
 // Address lookup for the map picker, through OpenStreetMap's Nominatim. Called from our server
 // (not the browser) so we can follow Nominatim's usage policy (identify the store, at most one
 // request per second, cache results) and keep the page's Content-Security-Policy tight.
-import { config } from './config.js';
-import { getSetting } from './db.js';
+import { config } from '../config/index.js';
+import { getSetting } from '../lib/db.js';
 
 const CACHE_TTL_MS = 24 * 3600 * 1000;
 const CACHE_MAX = 2000;

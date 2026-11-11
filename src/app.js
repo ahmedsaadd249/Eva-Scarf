@@ -2,17 +2,17 @@ import path from 'node:path';
 import express from 'express';
 import session from 'express-session';
 import helmet from 'helmet';
-import { config, ROOT } from './config.js';
-import { csrf, DbSessionStore, loadUser, safeNext } from './auth.js';
-import { i18n, LANGS, offerLabel } from './i18n.js';
-import { cartCount } from './cart.js';
-import { getSetting, run } from './db.js';
-import { adminProductLabel, productLabel, productName } from './products.js';
-import { allZones, formatAddress, placeOf } from './zones.js';
-import { activeOffers } from './offers.js';
-import { storageOrigin } from './storage.js';
-import { trackResponse } from './platform.js';
-import { TemplateView } from './templates.js';
+import { config, ROOT } from './config/index.js';
+import { csrf, DbSessionStore, loadUser, safeNext } from './services/auth.js';
+import { i18n, LANGS, offerLabel } from './lib/i18n.js';
+import { cartCount } from './services/cart.js';
+import { getSetting, run } from './lib/db.js';
+import { adminProductLabel, productLabel, productName } from './services/products.js';
+import { allZones, formatAddress, placeOf } from './services/zones.js';
+import { activeOffers } from './services/offers.js';
+import { storageOrigin } from './lib/storage.js';
+import { trackResponse } from './lib/platform.js';
+import { TemplateView } from './lib/templates.js';
 import shopRoutes from './routes/shop.js';
 import cartRoutes from './routes/cart.js';
 import accountRoutes from './routes/account.js';
@@ -26,7 +26,7 @@ const LEAFLET = 'https://unpkg.com/leaflet@1.9.4/dist/';
 export const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(ROOT, 'src', 'views'));
-app.set('view', TemplateView); // views by name, compiled once (src/templates.js); works on Cloudflare too
+app.set('view', TemplateView); // views by name, compiled once (src/lib/templates.js); works on Cloudflare too
 app.disable('x-powered-by');
 if (config.isProd) app.set('trust proxy', 1);
 app.use(trackResponse); // Cloudflare: keep the request's database connection until the response is done

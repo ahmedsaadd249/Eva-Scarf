@@ -2,8 +2,8 @@
 // site shares them (Cloudflare runs several) and they survive restarts and deploys. A small store for
 // express-rate-limit; each limit gets its own key prefix so their counts don't mix.
 import { rateLimit } from 'express-rate-limit';
-import { get, run } from './db.js';
-import { keepAlive } from './platform.js';
+import { get, run } from '../lib/db.js';
+import { keepAlive } from '../lib/platform.js';
 
 class DbStore {
   localKeys = false; // a count made by one copy of the site is seen by all of them

@@ -59,13 +59,13 @@ Object.assign(process.env, {
   ADMIN_EMAIL: 'owner@evascarf.test',
   ADMIN_PASSWORD: 'Owner#Pass2026',
 });
-const { config } = await import('../src/config.js');
-const db = await import('../src/db.js');
+const { config } = await import('../src/config/index.js');
+const db = await import('../src/lib/db.js');
 const { seedAdmin, seedCatalog } = await import('../src/seed.js');
 const { app } = await import('../src/app.js');
-const { verifyPassword } = await import('../src/auth.js');
-const { translate } = await import('../src/i18n.js');
-const { formatMoney } = await import('../src/pricing.js');
+const { verifyPassword } = await import('../src/services/auth.js');
+const { translate } = await import('../src/lib/i18n.js');
+const { formatMoney } = await import('../src/services/pricing.js');
 await seedAdmin();
 await seedCatalog();
 const server = app.listen(Number(PORT));
@@ -584,7 +584,7 @@ try {
   ok(`deleting it keeps order ${orderNo} unchanged: name, photo, price and total`);
 
   section('Owner: offers (free delivery over an amount, buy 3 get the 4th free, % off)');
-  const { finalUnitPrice } = await import('../src/pricing.js');
+  const { finalUnitPrice } = await import('../src/services/pricing.js');
   await admin.goto(`${BASE}/admin/offers`, { waitUntil: 'networkidle0' });
   const listed = await admin.$$eval('[data-offer]', (els) => els.map((el) => ({ id: el.dataset.offer, status: el.querySelector('[data-offer-status]').textContent.trim() })));
   assert.equal(listed.length, 2, 'two starting offers');

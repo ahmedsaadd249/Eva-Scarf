@@ -46,9 +46,9 @@ async function main() {
     NODE_ENV: 'development', PGLITE_DIR: 'memory://sec', PORT: String(PORT), BASE_URL: `http://localhost:${PORT}`,
     AUTH_RATE_LIMIT: '100', OWNER_LOGIN_LIMIT: '30', GEO_RATE_LIMIT: '5',
   });
-  const db = await import('../src/db.js');
+  const db = await import('../src/lib/db.js');
   const { seedAdmin, seedCatalog } = await import('../src/seed.js');
-  const { placeOrder } = await import('../src/orders.js');
+  const { placeOrder } = await import('../src/services/orders.js');
   const { app } = await import('../src/app.js');
   await seedAdmin();
   await seedCatalog();
@@ -548,7 +548,7 @@ async function main() {
       }
     });
     await check('source code, settings and the database are not downloadable', async () => {
-      for (const url of ['/.env', '/package.json', '/src/config.js', '/src/schema.sql', '/uploads/../.env', '/uploads/..%2f..%2f.env', '/css/..%2f..%2f.env', '/data/pglite', '/.git/config']) {
+      for (const url of ['/.env', '/package.json', '/src/config.js', '/src/config/index.js', '/src/schema.sql', '/uploads/../.env', '/uploads/..%2f..%2f.env', '/css/..%2f..%2f.env', '/data/pglite', '/.git/config']) {
         const res = await new Visitor().request(url);
         assert.ok(res.status === 404 || res.status === 400, `${url} → ${res.status}`);
         assert.ok(!/SESSION_SECRET|DATABASE_URL|\[core\]/.test(res.text_), `${url} leaked`);

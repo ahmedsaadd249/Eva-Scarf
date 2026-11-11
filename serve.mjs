@@ -1,7 +1,7 @@
 // Entry point: `node serve.mjs` serves the store at http://localhost:3000
 import { app } from './src/app.js';
-import { config } from './src/config.js';
-import { isSmtpConfigured } from './src/mailer.js';
+import { config } from './src/config/index.js';
+import { isSmtpConfigured } from './src/services/mailer.js';
 
 app.listen(config.port, () => {
   console.log(`Eva Scarf running at ${config.baseUrl}`);

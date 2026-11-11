@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { config } from '../config.js';
-import { all } from '../db.js';
-import { getProductImages, getVisibleProductBySlug, listProducts, productName, SORT_KEYS } from '../products.js';
+import { config } from '../config/index.js';
+import { all } from '../lib/db.js';
+import { getProductImages, getVisibleProductBySlug, listProducts, productName, SORT_KEYS } from '../services/products.js';
 
 const router = Router();
 

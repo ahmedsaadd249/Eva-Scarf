@@ -1,9 +1,9 @@
 // npm run test-email -- you@example.com [ar|en]
 // Sends one real email through the SMTP settings in .env to check they work.
 import { emailError, normalizeEmail } from '../public/js/validation.js';
-import { isSmtpConfigured } from '../src/mailer.js';
-import { sendTestEmail } from '../src/emails.js';
-import { closeDb } from '../src/db.js';
+import { isSmtpConfigured } from '../src/services/mailer.js';
+import { sendTestEmail } from '../src/services/emails.js';
+import { closeDb } from '../src/lib/db.js';
 
 const to = normalizeEmail(process.argv[2]);
 const lang = process.argv[3] === 'en' ? 'en' : 'ar';

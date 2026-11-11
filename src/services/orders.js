@@ -1,4 +1,4 @@
-import { all, get, tx } from './db.js';
+import { all, get, tx } from '../lib/db.js';
 import { loadCart } from './cart.js';
 import { randomToken } from './auth.js';
 import { productLabel, productName } from './products.js';

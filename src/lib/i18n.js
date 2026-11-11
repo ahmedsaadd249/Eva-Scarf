@@ -1,4 +1,4 @@
-import { formatMoney } from './pricing.js';
+import { formatMoney } from '../services/pricing.js';
 import { readText } from './platform.js';
 
 export const LANGS = ['ar', 'en'];

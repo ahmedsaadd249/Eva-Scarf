@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import nodemailer from 'nodemailer';
-import { config, ROOT } from './config.js';
-import { run } from './db.js';
-import { keepAlive, readBinary } from './platform.js';
+import { config, ROOT } from '../config/index.js';
+import { run } from '../lib/db.js';
+import { keepAlive, readBinary } from '../lib/platform.js';
 
 const smtpReady = Boolean(config.smtp.host && config.smtp.user && config.smtp.pass);
 

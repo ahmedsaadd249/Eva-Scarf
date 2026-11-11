@@ -7,9 +7,9 @@
 // (which empties Supabase first). Sessions and password-reset links are not copied.
 import fs from 'node:fs';
 import path from 'node:path';
-import { config, ROOT } from '../src/config.js';
-import { closeDb, get, setupDatabase, tx } from '../src/db.js';
-import { saveImage, usesSupabaseStorage } from '../src/storage.js';
+import { config, ROOT } from '../src/config/index.js';
+import { closeDb, get, setupDatabase, tx } from '../src/lib/db.js';
+import { saveImage, usesSupabaseStorage } from '../src/lib/storage.js';
 
 if (!config.databaseUrl) {
   console.error('Set DATABASE_URL in .env first (the Supabase database to copy into).');

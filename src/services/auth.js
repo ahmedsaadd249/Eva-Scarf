@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { promisify } from 'node:util';
 import session from 'express-session';
-import { get, run } from './db.js';
+import { get, run } from '../lib/db.js';
 
 const scrypt = promisify(crypto.scrypt);
 // One of OWASP's recommended scrypt settings (N = 2^15, r = 8, p = 3): as strong as N = 2^17 with

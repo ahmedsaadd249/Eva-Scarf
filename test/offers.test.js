@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 
 process.env.DATABASE_URL = '';
 process.env.PGLITE_DIR = 'memory://offers-test';
-const { validateOffer } = await import('../src/offers.js');
-const { offerLabel } = await import('../src/i18n.js');
+const { validateOffer } = await import('../src/services/offers.js');
+const { offerLabel } = await import('../src/lib/i18n.js');
 
 test('free delivery needs a minimum in pounds', () => {
   assert.deepEqual(validateOffer({ type: 'free_delivery', min_subtotal: '1,000' }).values.min_subtotal, 100000);

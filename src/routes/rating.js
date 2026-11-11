@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { run } from '../db.js';
-import { getOrder } from '../orders.js';
+import { run } from '../lib/db.js';
+import { getOrder } from '../services/orders.js';
 
 const router = Router();
 

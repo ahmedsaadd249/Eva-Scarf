@@ -10,7 +10,7 @@
 // compileAllTemplates fills that cache, so an include never reads or compiles a file during a request.
 import path from 'node:path';
 import ejs from 'ejs';
-import { config } from './config.js';
+import { config } from '../config/index.js';
 import { fileExists, hasEmbeddedFiles, listFiles, readText } from './platform.js';
 
 const TEMPLATE_DIRS = ['src/views', 'src/emails'];

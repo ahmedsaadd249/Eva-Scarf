@@ -8,7 +8,7 @@ const onCloudflare = globalThis.navigator?.userAgent === 'Cloudflare-Workers';
 
 function projectRoot() {
   try {
-    return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..'); // src/config → project root
   } catch {
     return '/'; // bundled Worker: no file location (nothing is read from disk there)
   }

@@ -1,15 +1,15 @@
 import { Router } from 'express';
-import { all, get, run } from '../db.js';
-import { sharedRateLimit } from '../rate-limit.js';
+import { all, get, run } from '../lib/db.js';
+import { sharedRateLimit } from '../middlewares/rate-limit.js';
 import {
   accountHome, customersOnly, hashPassword, logIn, logOut, needsRehash, requireUser, safeNext, verifyPassword,
-} from '../auth.js';
+} from '../services/auth.js';
 import {
   CODE_TTL_MS, maskEmail, sendLoginCode, sendOwnerCode, verifyLoginCode, verifyOwnerCode,
-} from '../login-codes.js';
-import { getOrder } from '../orders.js';
-import { checkProfile, saveProfile } from '../profile.js';
-import { deliverableZone, groupByCity, listZones } from '../zones.js';
+} from '../services/login-codes.js';
+import { getOrder } from '../services/orders.js';
+import { checkProfile, saveProfile } from '../services/profile.js';
+import { deliverableZone, groupByCity, listZones } from '../services/zones.js';
 import { isProfileComplete, normalizeEmail } from '../../public/js/validation.js';
 
 const router = Router();

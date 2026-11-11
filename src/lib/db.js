@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
-import { config, ROOT } from './config.js';
+import { config, ROOT } from '../config/index.js';
 import { requestScope } from './platform.js';
 
 // Return counts/sums as numbers (not strings) and money-safe numerics as numbers.

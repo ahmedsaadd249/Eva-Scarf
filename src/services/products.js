@@ -1,5 +1,5 @@
-import { all, get } from './db.js';
-import { localized, translate } from './i18n.js';
+import { all, get } from '../lib/db.js';
+import { localized, translate } from '../lib/i18n.js';
 import { finalUnitPrice } from './pricing.js';
 
 const SELECT_PRODUCT = `

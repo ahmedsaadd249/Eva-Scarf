@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { cartCount, getCart, loadCart, MAX_QTY_PER_ITEM, setCartQty } from '../cart.js';
-import { getProductById } from '../products.js';
+import { cartCount, getCart, loadCart, MAX_QTY_PER_ITEM, setCartQty } from '../services/cart.js';
+import { getProductById } from '../services/products.js';
 
 const router = Router();
 

@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS offers (
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS offer_discount integer NOT NULL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS offers jsonb;
 
--- Rate-limit counters shared by every running copy of the site (src/rate-limit.js).
+-- Rate-limit counters shared by every running copy of the site (src/middlewares/rate-limit.js).
 CREATE TABLE IF NOT EXISTS rate_limits (
   key      text PRIMARY KEY,
   hits     integer NOT NULL,
@@ -203,7 +203,7 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 );
 
 -- Customers sign in with a one-time code sent to their email: they have no password. Only the
--- store owner signs in with a password (src/login-codes.js, /admin/login).
+-- store owner signs in with a password (src/services/login-codes.js, /admin/login).
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS login_codes (

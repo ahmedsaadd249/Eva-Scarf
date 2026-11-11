@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeTotals, finalUnitPrice, formatMoney, toPiasters } from '../src/pricing.js';
+import { computeTotals, finalUnitPrice, formatMoney, toPiasters } from '../src/services/pricing.js';
 
 test('discounted unit price is rounded to the piaster and capped at 90%', () => {
   assert.equal(finalUnitPrice(65000, 20), 52000);

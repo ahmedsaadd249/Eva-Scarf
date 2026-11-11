@@ -1,10 +1,10 @@
 import path from 'node:path';
-import { config } from './config.js';
-import { get } from './db.js';
-import { helpersFor, LANGS } from './i18n.js';
+import { config } from '../config/index.js';
+import { get } from '../lib/db.js';
+import { helpersFor, LANGS } from '../lib/i18n.js';
 import { imageSource, LOGO_CID, queueMail, sendMail } from './mailer.js';
 import { getOrder } from './orders.js';
-import { renderTemplate } from './templates.js';
+import { renderTemplate } from '../lib/templates.js';
 import { allZones, formatAddress } from './zones.js';
 
 const FONTS = {

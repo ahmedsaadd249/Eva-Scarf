@@ -3,8 +3,8 @@
 // appears in a chat, a command or a file that goes to GitHub, and this script never prints it.
 //   npm run owner:set
 // Signs the owner out everywhere, so the next sign-in uses the new details.
-import { closeDb, get, run } from '../src/db.js';
-import { endOtherSessions, hashPassword } from '../src/auth.js';
+import { closeDb, get, run } from '../src/lib/db.js';
+import { endOtherSessions, hashPassword } from '../src/services/auth.js';
 import { emailError, normalizeEmail, passwordError } from '../public/js/validation.js';
 
 const email = normalizeEmail(process.env.ADMIN_EMAIL);

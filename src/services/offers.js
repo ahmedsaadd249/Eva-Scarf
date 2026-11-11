@@ -1,7 +1,7 @@
 // Store-wide offers (dashboard → Offers): free delivery over an amount, "buy X, get Y free", and a
 // percentage off the order. The arithmetic lives in pricing.js (applyOffers); this module reads,
 // caches and validates them.
-import { all, CACHE_TTL_MS, get } from './db.js';
+import { all, CACHE_TTL_MS, get } from '../lib/db.js';
 import { toPiasters } from './pricing.js';
 
 export const OFFER_TYPES = ['free_delivery', 'buy_get', 'order_percent'];

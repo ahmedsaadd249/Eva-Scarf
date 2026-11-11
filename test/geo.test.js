@@ -8,8 +8,8 @@ process.env.PGLITE_DIR = 'memory://geo-test';
 process.env.NOMINATIM_URL = 'https://nominatim.test/';
 process.env.GEO_MIN_INTERVAL_MS = '150';
 process.env.MAIL_FROM = 'Eva Scarf <shop@example.com>';
-const { closeDb } = await import('../src/db.js');
-const { cleanQuery, GeoError, parseLatLng, resetGeoCache, reverseGeocode, searchPlaces } = await import('../src/geo.js');
+const { closeDb } = await import('../src/lib/db.js');
+const { cleanQuery, GeoError, parseLatLng, resetGeoCache, reverseGeocode, searchPlaces } = await import('../src/services/geo.js');
 const { nameIn } = await import('../public/js/location-picker.js');
 const zones = (await import('../src/default-zones.json', { with: { type: 'json' } })).default;
 

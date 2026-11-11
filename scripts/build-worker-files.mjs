@@ -1,6 +1,6 @@
 // Bundles the files the store reads while running (page and email templates, translations, the email
 // logo) into worker/files.generated.js. A Cloudflare Worker has no project folder to read them from,
-// so worker/register.js hands this bundle to src/platform.js instead.
+// so worker/register.js hands this bundle to src/lib/platform.js instead.
 // Runs before every `wrangler deploy` / `wrangler dev` (build.command in wrangler.jsonc).
 import fs from 'node:fs';
 import path from 'node:path';

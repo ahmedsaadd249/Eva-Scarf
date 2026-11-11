@@ -1,8 +1,8 @@
 // Saving a customer's name, delivery address and phones: from the profile page and from checkout.
-import { get, run } from './db.js';
+import { get, run } from '../lib/db.js';
 import { sendWelcomeEmail } from './emails.js';
 import { deliverableZone } from './zones.js';
-import { validateProfile } from '../public/js/validation.js';
+import { validateProfile } from '../../public/js/validation.js';
 
 /**
  * Check the form and look up the neighborhood. Returns { values, errors, zone }; `errors` is empty when

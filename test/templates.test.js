@@ -4,8 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { collectFiles } from '../scripts/build-worker-files.mjs';
-import { useEmbeddedFiles } from '../src/platform.js';
-import { compileAllTemplates, hasTemplate, renderTemplate } from '../src/templates.js';
+import { useEmbeddedFiles } from '../src/lib/platform.js';
+import { compileAllTemplates, hasTemplate, renderTemplate } from '../src/lib/templates.js';
 
 const bundle = collectFiles();
 const templateFiles = Object.keys(bundle.text).filter((k) => k.endsWith('.ejs'));

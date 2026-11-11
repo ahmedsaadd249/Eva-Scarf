@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { ROOT } from './config.js';
+import { ROOT } from '../config/index.js';
 
 // ---------- Project files (templates, translations, the email logo) ----------
 // Node reads them from the project folder. A Worker has no project folder, so the build bundles them

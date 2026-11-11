@@ -1,7 +1,7 @@
 // JSON endpoints for the map picker on the profile page (signed-in customers only).
 import { Router } from 'express';
-import { sharedRateLimit } from '../rate-limit.js';
-import { cleanQuery, GeoError, parseLatLng, reverseGeocode, searchPlaces } from '../geo.js';
+import { sharedRateLimit } from '../middlewares/rate-limit.js';
+import { cleanQuery, GeoError, parseLatLng, reverseGeocode, searchPlaces } from '../services/geo.js';
 
 const router = Router();
 

@@ -9,10 +9,10 @@ process.env.DATABASE_URL = '';
 process.env.PGLITE_DIR = 'memory://login-codes-test';
 process.env.SMTP_HOST = '';
 process.env.OUTBOX_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'eva-codes-'));
-const { closeDb, get, run } = await import('../src/db.js');
+const { closeDb, get, run } = await import('../src/lib/db.js');
 const {
   cleanCode, maskEmail, sendLoginCode, sendOwnerCode, sendSetupCode, verifyLoginCode, verifyOwnerCode, verifySetupCode, MAX_ATTEMPTS,
-} = await import('../src/login-codes.js');
+} = await import('../src/services/login-codes.js');
 after(async () => {
   await closeDb();
   fs.rmSync(process.env.OUTBOX_DIR, { recursive: true, force: true });

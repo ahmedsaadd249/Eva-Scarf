@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { config } from './config.js';
+import { config } from '../config/index.js';
 
 const { url, serviceKey, bucket } = config.supabase;
 export const usesSupabaseStorage = Boolean(url && serviceKey);

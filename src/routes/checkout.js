@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { loadCart } from '../cart.js';
-import { sendOrderConfirmation } from '../emails.js';
-import { OrderError, placeOrder } from '../orders.js';
-import { checkProfile, saveProfile } from '../profile.js';
-import { groupByCity, listZones } from '../zones.js';
+import { loadCart } from '../services/cart.js';
+import { sendOrderConfirmation } from '../services/emails.js';
+import { OrderError, placeOrder } from '../services/orders.js';
+import { checkProfile, saveProfile } from '../services/profile.js';
+import { groupByCity, listZones } from '../services/zones.js';
 import { codeLocals } from './account.js';
 
 const router = Router();

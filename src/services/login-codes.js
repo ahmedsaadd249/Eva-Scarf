@@ -5,10 +5,10 @@
 //   with a code sent to their confirmed inbox (users.otp_email).
 // Every kind of code ("purpose") gets the same protection, and a code of one kind never works for another.
 import crypto from 'node:crypto';
-import { get, run } from './db.js';
+import { get, run } from '../lib/db.js';
 import { sha256 } from './auth.js';
 import { sendLoginCodeEmail } from './emails.js';
-import { emailError, normalizeEmail, toLatinDigits } from '../public/js/validation.js';
+import { emailError, normalizeEmail, toLatinDigits } from '../../public/js/validation.js';
 
 export const CODE_TTL_MS = 10 * 60 * 1000;
 export const RESEND_AFTER_MS = 60 * 1000;
