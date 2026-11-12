@@ -1,6 +1,6 @@
 // npm run seed              creates the owner account (from .env). Safe on the live store.
 // npm run seed -- --samples  also adds the 14 demo tarhas (for a fresh local copy only).
-// Safe to run again: existing categories, products and users are left alone.
+// Safe to run again: existing products and users are left alone.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,19 +34,14 @@ export async function seedCatalog() {
   const catalog = JSON.parse(fs.readFileSync(path.join(ROOT, 'src', 'sample-catalog.json'), 'utf8'));
   const hasSamples = fs.existsSync(path.join(ROOT, 'public', 'samples'));
   const added = await tx(async (t) => {
-    for (const [i, c] of catalog.categories.entries()) {
-      await t.run(`INSERT INTO categories (slug, name_ar, name_en, image, sort_order) VALUES (?, ?, ?, ?, ?)
-                   ON CONFLICT (slug) DO NOTHING`, [c.slug, c.name_ar, c.name_en, hasSamples ? `/samples/category-${c.slug}.jpg` : null, i]);
-    }
     let n = 0;
     for (const [i, p] of catalog.products.entries()) {
       if (await t.get('SELECT 1 FROM products WHERE slug = ?', [p.slug])) continue;
-      const categoryId = (await t.get('SELECT id FROM categories WHERE slug = ?', [p.category]))?.id ?? null;
       const product = await t.get(`
-        INSERT INTO products (slug, name_ar, name_en, description_ar, description_en, category_id, swatch,
+        INSERT INTO products (slug, name_ar, name_en, description_ar, description_en, swatch,
                               price, discount_percent, stock, is_featured, is_active, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, now() - make_interval(mins => ?)) RETURNING id`, [
-        p.slug, p.name_ar, p.name_en, p.description_ar, p.description_en, categoryId, p.swatch,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, now() - make_interval(mins => ?)) RETURNING id`, [
+        p.slug, p.name_ar, p.name_en, p.description_ar, p.description_en, p.swatch,
         p.price * 100, p.discount, p.stock, p.featured ? 1 : 0, catalog.products.length - i,
       ]);
       if (hasSamples) {

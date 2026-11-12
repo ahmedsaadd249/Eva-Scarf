@@ -45,15 +45,8 @@ You need four free accounts. Do them in this order; each step lists exactly what
    ```bash
    npm run db:setup
    ```
-4. Move the store's current data (products, photos, neighborhoods and fees, accounts, orders) from this computer into
-   Supabase. Stop the local site first, then:
-   ```bash
-   npm run db:copy-local
-   ```
-   (Only needed once; done for this store on 2026-10-19. Add `-- --replace` to overwrite data already in Supabase.
-   The old `npm run migrate:sqlite` only reads the pre-Postgres file `data/eva.db`.)
-   From then on this computer also uses Supabase, so the local site shows the live data. The tests always use a
-   throwaway database and never touch it.
+4. From then on this computer also uses Supabase, so the local site shows the live data. The tests always use a
+   throwaway database and never touch it. (The store's data was moved into Supabase on 2026-10-19.)
 
 **Reading the data:** in Supabase, open **Table Editor**. `orders`, `order_items`, `users`, `products`,
 `zones` (neighborhoods and fees) and the rest are all there; you can view, filter, export to CSV and
@@ -143,7 +136,7 @@ The owner signs in at `/admin/login` and lands on the dashboard at `/admin`.
 The page styles are built from the templates by Tailwind (`npm run build:css` → `public/css/tailwind.css`).
 `npm start` and `npm run e2e` build them first, and `npm run deploy` builds them every time; run it yourself
 after changing classes in a template if the server is already running.
-Scripts (`seed`, `import-collection`, `migrate:sqlite`) use the same database as the server; for the
+Scripts (`seed`, `import-collection`) use the same database as the server; for the
 local database, stop the server first (it can only be open in one program at a time).
 
 ## What customers can do
