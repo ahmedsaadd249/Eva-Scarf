@@ -1,0 +1,14 @@
+<%#
+  The scripts at the end of every page (both layouts). public/js/app.js starts the features. The modulepreload
+  links fetch the modules it imports together with app.js itself; without them the browser would only find
+  each level of imports after the one before had arrived. Features loaded later with import() are not listed,
+  so other pages never download them. test/client-scripts.test.js checks this list against app.js's imports.
+%>
+<script type="application/json" id="client-i18n"><%- clientMessages %></script>
+<link rel="modulepreload" href="/js/lib/dom.js">
+<link rel="modulepreload" href="/js/features/add-to-cart.js">
+<link rel="modulepreload" href="/js/features/cart-badge.js">
+<link rel="modulepreload" href="/js/features/form-behaviors.js">
+<link rel="modulepreload" href="/js/features/header.js">
+<link rel="modulepreload" href="/js/features/toasts.js">
+<script type="module" src="/js/app.js"></script>

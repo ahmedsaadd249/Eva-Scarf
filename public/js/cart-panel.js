@@ -2,8 +2,9 @@
 // order". Its content comes from the server (/cart/panel, partials/cart-panel.ejs), like the cart page, so
 // prices are only ever calculated there. Changing a quantity or removing a tarha inside it is sent in the
 // background and the panel reloads in place. Closes with ✕, "Continue shopping", the dimmed page or Esc.
+import { csrf } from './lib/dom.js';
+
 const TRANSITION_MS = 450; // .cp-panel in site.css
-const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
 const setCount = (count) => window.dispatchEvent(new CustomEvent('cart:count', { detail: count }));
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
