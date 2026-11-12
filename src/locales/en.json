@@ -248,7 +248,6 @@
     "privacy": "Privacy policy"
   },
   "email": {
-    "footer": "You're receiving this because you have an Eva Scarf account.",
     "view_order": "View order",
     "qty_times": "{qty} × {price}",
     "welcome": {
@@ -275,7 +274,7 @@
       "shipped": {
         "subject": "Your order {no} is on its way",
         "heading": "Your order is on its way!",
-        "body": "{name}, we shipped your order and it will reach you soon. Please have {amount} in cash ready for the courier."
+        "body": "{name}, we shipped your order and it will reach you soon."
       },
       "delivered": {
         "subject": "Your order {no} was delivered",
